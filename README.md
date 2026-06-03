@@ -1,56 +1,75 @@
-# Welcome to your Expo app 👋
+# Fitnessencial — App (entrenador + cliente)
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+App móvil tipo Harbiz para **Fitnessencial** (Kike Grana). Hecha con **Expo / React Native +
+TypeScript**. Dos roles (entrenador y cliente) y 4 funciones: **entrenamiento, nutrición, chat
+y progreso**.
 
-## Get started
+> **Versión demo**: los datos son de ejemplo y se guardan **en el propio teléfono**
+> (AsyncStorage). Todavía no hay servidor en la nube; el chat y los datos no se comparten entre
+> dispositivos. Eso llega en una fase posterior (Supabase).
 
-1. Install dependencies
+## Probar la app ahora (gratis, sin Xcode ni cuenta de Apple)
 
+1. Instala **Expo Go** en tu móvil:
+   - iPhone: App Store → "Expo Go"
+   - Android: Play Store → "Expo Go"
+2. En el Mac, dentro de esta carpeta:
    ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
+   cd fitnessencial-app
    npx expo start
    ```
+3. Aparece un **código QR** en la terminal. Escanéalo:
+   - iPhone: con la **cámara** del iPhone.
+   - Android: desde **dentro de Expo Go**.
+4. La app se abre en tu teléfono. (El Mac y el teléfono deben estar en la **misma red wifi**.)
 
-In the output, you'll find options to open the app in a
+### Cómo recorrer la demo
+- En la pantalla de inicio, entra como **Kike Grana (Entrenador)** o como un **cliente**
+  (Marta / David).
+- **Entrenador**: lista de clientes → abre un cliente → pestañas Entreno / Nutrición / Progreso
+  / Chat. Edita rutinas, macros y comidas; chatea; revisa el progreso.
+- **Cliente**: pestañas Hoy / Entreno / Nutrición / Progreso / Chat. Marca ejercicios, registra
+  peso y sube foto, chatea con el entrenador.
+- En **Perfil** (entrenador) puedes **reiniciar la demo** o **cerrar sesión**.
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
+## Estructura
+```
+src/
+  app/            rutas (Expo Router): login, (trainer)/, (client)/
+  components/     UI de marca, gráficos y vistas de cada función
+  lib/
+    theme.ts      colores y tipografía de Fitnessencial
+    db/           capa de datos (mock con AsyncStorage; se cambiará por Supabase)
+assets/images/    icono y splash de la app (icon-brand.png, splash-brand.png)
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+## Publicar en la App Store (cuando decidas pagar los ~99 €/año)
 
-### Other setup steps
+Esto es la **fase final**. Resumen de pasos (te acompaño cuando llegue el momento):
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+1. **Apple Developer Program**: date de alta en https://developer.apple.com/programs/ (~99 €/año).
+2. **Instala EAS** y entra con tu cuenta de Expo (gratis):
+   ```bash
+   npm install -g eas-cli
+   eas login
+   eas build:configure
+   ```
+3. **Compila en la nube** (no necesitas Xcode):
+   ```bash
+   eas build --platform ios --profile production
+   ```
+   EAS te guía para crear los certificados y perfiles de Apple automáticamente.
+4. **Crea la app en App Store Connect** (nombre, icono, capturas, descripción, privacidad).
+5. **Envía a revisión**:
+   ```bash
+   eas submit --platform ios
+   ```
+6. Apple revisa (suele tardar 1–3 días). Si la aprueban, ya está publicada.
 
-## Learn more
+> Apple **rechaza webs disfrazadas de app**. Esta app es nativa real (Expo/React Native), así
+> que cumple ese requisito. Antes de publicar conviene tener el **backend real** (Supabase) para
+> que el login, el chat y los datos sean de verdad multiusuario.
 
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+## Siguiente fase (backend real)
+Cambiar `src/lib/db` (hoy mock) por **Supabase**: login con email, base de datos Postgres, chat
+en tiempo real y almacenamiento de fotos. Las pantallas no cambian: solo la capa de datos.

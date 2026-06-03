@@ -1,37 +1,41 @@
 {
   "expo": {
-    "name": "fitnessencial-app",
-    "slug": "fitnessencial-app",
+    "name": "Fitnessencial",
+    "slug": "fitnessencial",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
-    "scheme": "fitnessencialapp",
-    "userInterfaceStyle": "automatic",
+    "icon": "./assets/images/icon-brand.png",
+    "scheme": "fitnessencial",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#06080b",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "supportsTablet": true,
+      "bundleIdentifier": "com.fitnessencial.app"
     },
     "android": {
+      "package": "com.fitnessencial.app",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+        "backgroundColor": "#06080b",
+        "foregroundImage": "./assets/images/icon-brand.png"
       },
       "predictiveBackGestureEnabled": false
     },
     "web": {
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/icon-brand.png"
     },
     "plugins": [
       "expo-router",
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#208AEF",
-          "android": {
-            "image": "./assets/images/splash-icon.png",
-            "imageWidth": 76
+          "backgroundColor": "#06080b",
+          "image": "./assets/images/splash-brand.png",
+          "imageWidth": 200,
+          "dark": {
+            "backgroundColor": "#06080b",
+            "image": "./assets/images/splash-brand.png",
+            "imageWidth": 200
           }
         }
       ]

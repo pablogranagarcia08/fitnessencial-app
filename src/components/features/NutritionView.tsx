@@ -1,0 +1,129 @@
+import { useState } from 'react';
+import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Button, Card, EmptyState, IconButton, Row, SectionTitle, Txt } from '@/components/ui';
+import { useNutritionPlan, useStore } from '@/lib/db/store';
+import { colors, font, radius, space } from '@/lib/theme';
+
+export function NutritionView({ clientId, mode }: { clientId: string; mode: 'client' | 'trainer' }) {
+  const plan = useNutritionPlan(clientId);
+  const { updateNutrition, addMeal, removeMeal, addMealItem, removeMealItem } = useStore();
+
+  if (!plan) return <EmptyState icon="nutrition-outline" text="Aún no hay plan de nutrición." />;
+
+  const editable = mode === 'trainer';
+
+  return (
+    <View style={{ gap: space.md }}>
+      <Card>
+        <Txt variant="label">OBJETIVO DIARIO</Txt>
+        <Row style={{ justifyContent: 'space-between' }}>
+          <Macro label="kcal" value={plan.dailyKcal} editable={editable} big onChange={(n) => updateNutrition(plan.id, { dailyKcal: n })} />
+          <Macro label="Proteína" value={plan.protein} unit="g" editable={editable} onChange={(n) => updateNutrition(plan.id, { protein: n })} />
+          <Macro label="Carbos" value={plan.carbs} unit="g" editable={editable} onChange={(n) => updateNutrition(plan.id, { carbs: n })} />
+          <Macro label="Grasas" value={plan.fat} unit="g" editable={editable} onChange={(n) => updateNutrition(plan.id, { fat: n })} />
+        </Row>
+      </Card>
+
+      <SectionTitle>Comidas</SectionTitle>
+
+      {plan.meals.map((meal) => (
+        <Card key={meal.id}>
+          <Row style={{ justifyContent: 'space-between' }}>
+            <Row>
+              <Txt variant="subtitle">{meal.name}</Txt>
+              <Txt variant="mute">{meal.time}</Txt>
+            </Row>
+            {editable && <IconButton icon="trash-outline" color={colors.danger} size={18} onPress={() => removeMeal(plan.id, meal.id)} />}
+          </Row>
+
+          {meal.items.map((it) => (
+            <Row key={it.id} style={{ justifyContent: 'space-between', paddingVertical: 2 }}>
+              <Row>
+                <View style={st.dot} />
+                <Txt variant="body" style={{ color: colors.ink }}>{it.name}</Txt>
+              </Row>
+              <Row>
+                {it.grams ? <Txt variant="mute">{it.grams} g</Txt> : null}
+                {editable && <IconButton icon="close" color={colors.mute} size={16} onPress={() => removeMealItem(plan.id, meal.id, it.id)} />}
+              </Row>
+            </Row>
+          ))}
+
+          {meal.items.length === 0 && <Txt variant="mute">Sin alimentos.</Txt>}
+
+          {editable && <AddItem onAdd={(name, grams) => addMealItem(plan.id, meal.id, name, grams)} />}
+        </Card>
+      ))}
+
+      {editable && <Button title="Añadir comida" variant="ghost" icon="add" onPress={() => addMeal(plan.id)} />}
+    </View>
+  );
+}
+
+function Macro({ label, value, unit, big, editable, onChange }: { label: string; value: number; unit?: string; big?: boolean; editable: boolean; onChange: (n: number) => void }) {
+  return (
+    <View style={{ alignItems: 'center', gap: 2 }}>
+      {editable ? (
+        <TextInput
+          value={String(value)}
+          onChangeText={(t) => onChange(Number(t.replace(/[^0-9]/g, '')) || 0)}
+          keyboardType="numeric"
+          style={[st.macroInput, big && { fontSize: 22, width: 70 }]}
+        />
+      ) : (
+        <Txt style={{ fontSize: big ? 24 : 18, fontWeight: font.bold, color: big ? colors.accent : colors.ink }}>
+          {value}{unit}
+        </Txt>
+      )}
+      <Txt variant="mute" style={{ fontSize: 11 }}>{label}</Txt>
+    </View>
+  );
+}
+
+function AddItem({ onAdd }: { onAdd: (name: string, grams?: number) => void }) {
+  const [name, setName] = useState('');
+  const [grams, setGrams] = useState('');
+  const add = () => {
+    if (!name.trim()) return;
+    onAdd(name.trim(), grams ? Number(grams) : undefined);
+    setName('');
+    setGrams('');
+  };
+  return (
+    <Row style={{ marginTop: 4 }}>
+      <TextInput value={name} onChangeText={setName} placeholder="Alimento" placeholderTextColor={colors.mute} style={[st.addInput, { flex: 1 }]} />
+      <TextInput value={grams} onChangeText={setGrams} placeholder="g" placeholderTextColor={colors.mute} keyboardType="numeric" style={[st.addInput, { width: 52, textAlign: 'center' }]} />
+      <Pressable onPress={add} style={({ pressed }) => [st.addBtn, pressed && { opacity: 0.7 }]}>
+        <Txt style={{ color: colors.bg, fontWeight: font.bold }}>+</Txt>
+      </Pressable>
+    </Row>
+  );
+}
+
+const st = StyleSheet.create({
+  dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.accent },
+  macroInput: {
+    backgroundColor: colors.bg2,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.line,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    color: colors.ink,
+    fontSize: 16,
+    fontWeight: font.bold,
+    minWidth: 48,
+    textAlign: 'center',
+  },
+  addInput: {
+    backgroundColor: colors.bg2,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.line,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    color: colors.ink,
+    fontSize: 14,
+  },
+  addBtn: { width: 38, height: 38, borderRadius: radius.sm, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' },
+});
