@@ -66,13 +66,11 @@ export default function Onboarding() {
       addProgress({ clientId: me.id, date: Date.now(), weightKg: w, photoUri: photos[0] });
       photos.slice(1).forEach((uri) => addProgress({ clientId: me.id, date: Date.now(), weightKg: w, photoUri: uri }));
 
-      const { summary } = await generatePlanFor(me.id);
-      Alert.alert('¡Plan generado a medida! 💪', summary + '\n\nKike lo revisará y ajustará contigo.', [
-        { text: 'Ver mi entreno', onPress: () => router.replace('/(client)/entreno') },
-      ]);
+      await generatePlanFor(me.id);
+      // Navega directo (funciona en web y en móvil; Alert es no-op en web).
+      router.replace('/(client)/entreno');
     } catch (e: any) {
       Alert.alert('No se pudo generar', e?.message ?? 'Inténtalo de nuevo.');
-    } finally {
       setLoading(false);
     }
   };
