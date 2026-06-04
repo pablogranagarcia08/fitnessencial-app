@@ -5,7 +5,21 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 import { useShallow } from 'zustand/react/shallow';
 import { planEngine, type PlanInput } from '../plan/engine';
 import { makeSeed } from './seed';
-import type { ClientProfile, DB, Exercise, Meal, NutritionPlan, ProgressEntry, SetLog, User, WorkoutDay } from './types';
+import type { ClientProfile, ClientStatus, DB, Exercise, Meal, NutritionPlan, ProgressEntry, SetLog, User, WorkoutDay, WorkoutPlan } from './types';
+
+// Adherencia: % de series marcadas como hechas sobre las prescritas en el plan.
+export function planAdherence(plan?: WorkoutPlan | null): { pct: number; done: number; total: number } | null {
+  if (!plan) return null;
+  let total = 0;
+  let done = 0;
+  plan.days.forEach((d) =>
+    d.exercises.forEach((e) => {
+      total += e.sets;
+      for (let i = 0; i < e.sets; i++) if (e.logs?.[i]?.done) done++;
+    })
+  );
+  return total ? { pct: Math.round((done / total) * 100), done, total } : null;
+}
 
 // Crea/normaliza el array de series de un ejercicio al nº de series prescrito,
 // usando el objetivo (kg/reps) como valor por defecto.
@@ -48,6 +62,10 @@ interface State {
 
   // CRM + perfil
   updateUser: (userId: string, patch: Partial<User>) => void;
+  addClient: (data: { name: string; email: string; phone?: string; goal?: string; status?: ClientStatus }) => string;
+  addReminder: (data: { text: string; clientId?: string; due: number }) => void;
+  toggleReminder: (id: string) => void;
+  removeReminder: (id: string) => void;
   setProfile: (userId: string, patch: Partial<ClientProfile>) => void;
   generatePlanFor: (clientId: string) => Promise<{ summary: string }>;
   publishPlan: (clientId: string) => void; // enviar borrador al cliente (lo activa)
@@ -272,6 +290,52 @@ export const useStore = create<State>()(
           },
         })),
 
+      addClient: (data) => {
+        const id = 'client-' + uid();
+        const trainerId = useStore.getState().sessionUserId ?? 'trainer-kike';
+        set((s) => ({
+          db: {
+            ...s.db,
+            users: [
+              ...s.db.users,
+              {
+                id,
+                name: data.name,
+                email: data.email,
+                role: 'client',
+                trainerId,
+                phone: data.phone,
+                goal: data.goal,
+                status: data.status ?? 'lead',
+                since: Date.now(),
+              },
+            ],
+          },
+        }));
+        return id;
+      },
+
+      addReminder: (data) =>
+        set((s) => ({
+          db: {
+            ...s.db,
+            reminders: [
+              ...(s.db.reminders ?? []),
+              { id: uid(), trainerId: s.sessionUserId ?? 'trainer-kike', clientId: data.clientId, text: data.text, due: data.due, done: false },
+            ],
+          },
+        })),
+
+      toggleReminder: (id) =>
+        set((s) => ({
+          db: { ...s.db, reminders: set2(s.db.reminders ?? [], (r) => r.id === id, (r) => ({ ...r, done: !r.done })) },
+        })),
+
+      removeReminder: (id) =>
+        set((s) => ({
+          db: { ...s.db, reminders: (s.db.reminders ?? []).filter((r) => r.id !== id) },
+        })),
+
       setProfile: (userId, patch) =>
         set((s) => ({
           db: {
@@ -425,6 +489,22 @@ export const useHasDraft = (clientId?: string) =>
     (s) =>
       s.db.workoutPlans.some((p) => p.clientId === clientId && p.status === 'draft') ||
       s.db.nutritionPlans.some((p) => p.clientId === clientId && p.status === 'draft')
+  );
+
+// Recordatorios del entrenador (opcionalmente de un cliente), pendientes primero y por fecha.
+export const useReminders = (trainerId: string, clientId?: string) =>
+  useStore(
+    useShallow((s) =>
+      (s.db.reminders ?? [])
+        .filter((r) => r.trainerId === trainerId && (clientId ? r.clientId === clientId : true))
+        .sort((a, b) => Number(a.done) - Number(b.done) || a.due - b.due)
+    )
+  );
+
+// Adherencia del cliente (% de series hechas en su plan).
+export const useAdherence = (clientId?: string) =>
+  useStore(
+    useShallow((s) => planAdherence(s.db.workoutPlans.find((p) => p.clientId === clientId)))
   );
 
 // Clientes del entrenador con un plan pendiente de revisar (bandeja tipo CRM).

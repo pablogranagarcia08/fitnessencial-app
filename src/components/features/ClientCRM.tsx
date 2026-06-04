@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
+import { router, type Href } from 'expo-router';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { Avatar, Button, Card, Row, SectionTitle, Txt } from '@/components/ui';
-import { useProgressOf, useStore, useUser, useWorkoutPlan } from '@/lib/db/store';
+import { useAdherence, useProgressOf, useReminders, useStore, useUser, useWorkoutPlan } from '@/lib/db/store';
 import type { ClientStatus } from '@/lib/db/types';
 import { colors, font, radius, space } from '@/lib/theme';
 
@@ -27,8 +28,13 @@ export function ClientCRM({
   const client = useUser(clientId);
   const plan = useWorkoutPlan(clientId);
   const progress = useProgressOf(clientId);
+  const adherence = useAdherence(clientId);
+  const reminders = useReminders(client?.trainerId ?? '', clientId);
   const updateUser = useStore((s) => s.updateUser);
+  const toggleReminder = useStore((s) => s.toggleReminder);
   if (!client) return null;
+
+  const pendientes = reminders.filter((r) => !r.done);
 
   const status = client.status ?? 'active';
   const last = progress[progress.length - 1]?.weightKg;
@@ -64,6 +70,9 @@ export function ClientCRM({
 
       <Row style={{ gap: space.sm }}>
         <Mini label="Último peso" value={last != null ? `${last} kg` : '—'} sub={delta != null ? `${delta > 0 ? '+' : ''}${delta.toFixed(1)} kg` : undefined} subTone={delta != null ? (delta <= 0 ? colors.success : colors.warn) : undefined} />
+        <Mini label="Adherencia" value={adherence ? `${adherence.pct}%` : '—'} valueTone={adherence ? (adherence.pct >= 70 ? colors.success : colors.warn) : undefined} sub={adherence ? `${adherence.done}/${adherence.total} series` : undefined} />
+      </Row>
+      <Row style={{ gap: space.sm }}>
         <Mini label="Plan" value={planLabel} valueTone={plan?.status === 'draft' ? colors.accent : undefined} />
         <Mini label="Cliente desde" value={client.since ? new Date(client.since).toLocaleDateString('es-ES', { month: 'short', year: '2-digit' }) : '—'} />
       </Row>
@@ -88,6 +97,25 @@ export function ClientCRM({
           style={st.notes}
         />
         <Txt variant="mute" style={{ fontSize: 11 }}>Solo las ves tú.</Txt>
+      </Card>
+
+      <Card style={{ gap: 8 }}>
+        <Row style={{ justifyContent: 'space-between' }}>
+          <SectionTitle>Recordatorios</SectionTitle>
+          <Button title="Añadir" variant="ghost" icon="add" small onPress={() => router.push(`/(trainer)/nuevo-recordatorio?clientId=${client.id}` as Href)} />
+        </Row>
+        {pendientes.length === 0 ? (
+          <Txt variant="mute">Sin recordatorios para {client.name.split(' ')[0]}.</Txt>
+        ) : (
+          pendientes.map((r) => (
+            <Row key={r.id} style={{ gap: space.sm }}>
+              <Pressable onPress={() => toggleReminder(r.id)} hitSlop={8}>
+                <Ionicons name="ellipse-outline" size={22} color={colors.mute} />
+              </Pressable>
+              <Txt variant="body" style={{ color: colors.ink, flex: 1 }}>{r.text}</Txt>
+            </Row>
+          ))
+        )}
       </Card>
 
       <View style={{ gap: space.sm }}>

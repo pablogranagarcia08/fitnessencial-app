@@ -180,6 +180,12 @@ export function makeSeed(): DB {
       { id: 'p6', clientId: 'client-david', date: now - 14 * day, weightKg: 78.0 },
       { id: 'p7', clientId: 'client-david', date: now - 1 * day, weightKg: 79.2 },
     ],
+
+    reminders: [
+      { id: 'rem1', trainerId: 'trainer-kike', clientId: 'client-laura', text: 'Llamar a Laura para cerrar su plan', due: now, done: false },
+      { id: 'rem2', trainerId: 'trainer-kike', clientId: 'client-david', text: 'Revisar progreso de David y subir cargas', due: now + 2 * day, done: false },
+      { id: 'rem3', trainerId: 'trainer-kike', text: 'Preparar publicación para Instagram', due: now + 1 * day, done: false },
+    ],
   };
 
   // Adjunta el vídeo de explicación a cada ejercicio que tenga uno disponible.

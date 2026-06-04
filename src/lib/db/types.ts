@@ -120,10 +120,21 @@ export interface ProgressEntry {
   note?: string;
 }
 
+// Recordatorio/tarea del entrenador (CRM).
+export interface Reminder {
+  id: string;
+  trainerId: string;
+  clientId?: string; // opcional: recordatorio ligado a un cliente
+  text: string;
+  due: number; // timestamp del vencimiento
+  done: boolean;
+}
+
 export interface DB {
   users: User[];
   workoutPlans: WorkoutPlan[];
   nutritionPlans: NutritionPlan[];
   messages: Message[];
   progress: ProgressEntry[];
+  reminders: Reminder[];
 }

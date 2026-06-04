@@ -45,8 +45,10 @@ export default function TrainerLayout() {
         name="perfil"
         options={{ title: 'Perfil', tabBarIcon: ({ color, size }) => <Ionicons name="person-circle" size={size} color={color} /> }}
       />
-      {/* Detalle de cliente: oculto de la barra */}
+      {/* Pantallas fuera de la barra */}
       <Tabs.Screen name="cliente/[id]" options={{ href: null }} />
+      <Tabs.Screen name="nuevo-cliente" options={{ href: null }} />
+      <Tabs.Screen name="nuevo-recordatorio" options={{ href: null }} />
     </Tabs>
   );
 }

@@ -1,15 +1,25 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, type Href } from 'expo-router';
 import { Pressable, StyleSheet, View } from 'react-native';
-import { Avatar, Card, Header, Row, Screen, Txt } from '@/components/ui';
-import { useSession, useStore } from '@/lib/db/store';
+import { Avatar, Button, Card, Header, IconButton, Row, Screen, Txt } from '@/components/ui';
+import { planAdherence, useReminders, useSession, useStore } from '@/lib/db/store';
 import { colors, font, radius, space } from '@/lib/theme';
 
 const DAY = 86400000;
 
+function dueLabel(due: number): { text: string; tone: string } {
+  const diff = Math.floor((due - Date.now()) / DAY);
+  if (due < Date.now() - DAY) return { text: 'Vencido', tone: colors.danger };
+  if (diff <= 0) return { text: 'Hoy', tone: colors.warn };
+  if (diff === 1) return { text: 'Mañana', tone: colors.mute };
+  return { text: `En ${diff} días`, tone: colors.mute };
+}
+
 export default function Inicio() {
   const me = useSession();
   const db = useStore((s) => s.db);
+  const reminders = useReminders(me?.id ?? '');
+  const toggleReminder = useStore((s) => s.toggleReminder);
   if (!me) return null;
 
   const clients = db.users.filter((u) => u.role === 'client' && u.trainerId === me.id);
@@ -35,6 +45,14 @@ export default function Inicio() {
   const activos7d = activos.filter((c) => Date.now() - lastProgress(c.id) < 7 * DAY);
   const inactivos = activos.filter((c) => c.status === 'active' && Date.now() - lastProgress(c.id) > 14 * DAY);
 
+  // Adherencia media (% de series hechas) de los clientes con plan.
+  const adher = activos
+    .map((c) => planAdherence(db.workoutPlans.find((p) => p.clientId === c.id)))
+    .filter((a): a is NonNullable<typeof a> => !!a);
+  const adherAvg = adher.length ? Math.round(adher.reduce((s, a) => s + a.pct, 0) / adher.length) : null;
+
+  const pendientes = reminders.filter((r) => !r.done);
+
   const hoy = new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
 
   // Cola de "necesitan tu atención"
@@ -47,7 +65,16 @@ export default function Inicio() {
 
   return (
     <Screen>
-      <Header title="Hola, Kike" subtitle={hoy[0].toUpperCase() + hoy.slice(1)} right={<Avatar name={me.name} userId={me.id} size={44} />} />
+      <Header
+        title="Hola, Kike"
+        subtitle={hoy[0].toUpperCase() + hoy.slice(1)}
+        right={
+          <Row style={{ gap: 4 }}>
+            <IconButton icon="person-add" color={colors.accent} onPress={() => router.push('/(trainer)/nuevo-cliente' as Href)} />
+            <Avatar name={me.name} userId={me.id} size={44} />
+          </Row>
+        }
+      />
 
       <Row style={{ gap: space.sm }}>
         <Stat label="Clientes" value={activos.length} icon="people" onPress={() => router.push('/(trainer)/clientes')} />
@@ -57,11 +84,37 @@ export default function Inicio() {
         <Stat label="Sin responder" value={sinResponder.length} icon="chatbubbles" tone={sinResponder.length ? colors.warn : undefined} onPress={() => router.push('/(trainer)/mensajes')} />
         <Stat label="Activos 7d" value={activos7d.length} icon="flame" />
       </Row>
-      {leads.length > 0 && (
-        <Row style={{ gap: space.sm }}>
-          <Stat label="Leads" value={leads.length} icon="star" tone={colors.success} onPress={() => router.push('/(trainer)/clientes')} />
-          <View style={{ flex: 1 }} />
-        </Row>
+      <Row style={{ gap: space.sm }}>
+        <Stat label="Leads" value={leads.length} icon="star" tone={leads.length ? colors.success : undefined} onPress={() => router.push('/(trainer)/clientes')} />
+        <Stat label="Adherencia" value={adherAvg ?? '—'} suffix={adherAvg != null ? '%' : ''} icon="checkmark-circle" tone={adherAvg != null && adherAvg >= 70 ? colors.success : adherAvg != null ? colors.warn : undefined} />
+      </Row>
+
+      {/* Recordatorios */}
+      <Row style={{ justifyContent: 'space-between', marginTop: space.sm }}>
+        <Txt variant="subtitle">Recordatorios</Txt>
+        <Button title="Añadir" variant="ghost" icon="add" small onPress={() => router.push('/(trainer)/nuevo-recordatorio' as Href)} />
+      </Row>
+      {pendientes.length === 0 ? (
+        <Txt variant="mute">No tienes recordatorios pendientes.</Txt>
+      ) : (
+        pendientes.map((r) => {
+          const dl = dueLabel(r.due);
+          const who = r.clientId ? db.users.find((u) => u.id === r.clientId)?.name.split(' ')[0] : null;
+          return (
+            <Card key={r.id} style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm }}>
+              <Pressable onPress={() => toggleReminder(r.id)} hitSlop={8}>
+                <Ionicons name="ellipse-outline" size={24} color={colors.mute} />
+              </Pressable>
+              <View style={{ flex: 1 }}>
+                <Txt variant="body" style={{ color: colors.ink }}>{r.text}</Txt>
+                <Row style={{ gap: 6 }}>
+                  <Txt style={{ color: dl.tone, fontSize: 12, fontWeight: font.semibold }}>{dl.text}</Txt>
+                  {who ? <Txt variant="mute" style={{ fontSize: 12 }}>· {who}</Txt> : null}
+                </Row>
+              </View>
+            </Card>
+          );
+        })
       )}
 
       <Txt variant="subtitle" style={{ marginTop: space.sm }}>Necesitan tu atención</Txt>
@@ -94,7 +147,7 @@ export default function Inicio() {
   );
 }
 
-function Stat({ label, value, icon, tone, onPress }: { label: string; value: number; icon: keyof typeof Ionicons.glyphMap; tone?: string; onPress?: () => void }) {
+function Stat({ label, value, suffix, icon, tone, onPress }: { label: string; value: number | string; suffix?: string; icon: keyof typeof Ionicons.glyphMap; tone?: string; onPress?: () => void }) {
   const c = tone ?? colors.ink;
   return (
     <Pressable onPress={onPress} disabled={!onPress} style={({ pressed }) => [st.stat, { opacity: pressed ? 0.7 : 1 }]}>
@@ -102,7 +155,7 @@ function Stat({ label, value, icon, tone, onPress }: { label: string; value: num
         <Ionicons name={icon} size={18} color={tone ?? colors.mute} />
         {onPress && <Ionicons name="chevron-forward" size={14} color={colors.mute} />}
       </Row>
-      <Txt style={{ fontSize: 28, fontWeight: font.display, color: c }}>{value}</Txt>
+      <Txt style={{ fontSize: 28, fontWeight: font.display, color: c }}>{value}{suffix}</Txt>
       <Txt variant="mute" style={{ fontSize: 12 }}>{label}</Txt>
     </Pressable>
   );

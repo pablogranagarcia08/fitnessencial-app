@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, type Href } from 'expo-router';
 import { Pressable, View } from 'react-native';
-import { Avatar, Badge, Card, EmptyState, Header, Row, Screen, Txt } from '@/components/ui';
+import { Avatar, Badge, Card, EmptyState, Header, IconButton, Row, Screen, Txt } from '@/components/ui';
 import { useClientsOf, useProgressOf, useSession } from '@/lib/db/store';
 import type { ClientStatus } from '@/lib/db/types';
 import { colors } from '@/lib/theme';
@@ -19,7 +19,16 @@ export default function Clientes() {
 
   return (
     <Screen>
-      <Header title="Clientes" subtitle={`${clients.length} en total`} right={<Avatar name={me.name} userId={me.id} size={44} />} />
+      <Header
+        title="Clientes"
+        subtitle={`${clients.length} en total`}
+        right={
+          <Row style={{ gap: 4 }}>
+            <IconButton icon="person-add" color={colors.accent} onPress={() => router.push('/(trainer)/nuevo-cliente' as Href)} />
+            <Avatar name={me.name} userId={me.id} size={44} />
+          </Row>
+        }
+      />
       {clients.length === 0 ? (
         <EmptyState icon="people-outline" text="Aún no tienes clientes." />
       ) : (
