@@ -57,15 +57,15 @@ export default function Hoy() {
 
       <Pressable onPress={() => router.push('/(client)/onboarding' as Href)} style={({ pressed }) => [{ opacity: pressed ? 0.85 : 1 }]}>
         <View style={hs.cta}>
+          <Avatar name={trainer?.name ?? 'Kike'} userId={trainer?.id} size={40} />
           <View style={{ flex: 1, gap: 2 }}>
-            <Row>
-              <Ionicons name="sparkles" size={18} color={colors.bg} />
-              <Txt style={{ color: colors.bg, fontWeight: font.bold, fontSize: 16 }}>
-                {me.profile?.generatedAt ? 'Actualizar mi plan a medida' : 'Genera tu plan a medida'}
-              </Txt>
-            </Row>
-            <Txt style={{ color: colors.bg, opacity: 0.8, fontSize: 13 }}>
-              Tus datos + objetivo → entreno y nutrición personalizados
+            <Txt style={{ color: colors.bg, fontWeight: font.bold, fontSize: 16 }}>
+              {me.profile?.generatedAt ? 'Ajustar tu plan con Kike' : 'Pídele tu plan a Kike'}
+            </Txt>
+            <Txt style={{ color: colors.bg, opacity: 0.85, fontSize: 13 }}>
+              {me.profile?.generatedAt
+                ? 'Actualiza tus datos y Kike te lo adapta'
+                : 'Cuéntale tus datos y te prepara entreno y nutrición'}
             </Txt>
           </View>
           <Ionicons name="arrow-forward" size={22} color={colors.bg} />

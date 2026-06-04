@@ -31,7 +31,7 @@ const DAYS = [2, 3, 4, 5, 6];
 
 export default function Onboarding() {
   const me = useSession();
-  const { setProfile, addProgress, generatePlanFor } = useStore();
+  const { setProfile, addProgress, generatePlanFor, sendMessage } = useStore();
 
   const [weight, setWeight] = useState('');
   const [height, setHeight] = useState(me?.profile?.heightCm ? String(me.profile.heightCm) : '');
@@ -67,10 +67,19 @@ export default function Onboarding() {
       photos.slice(1).forEach((uri) => addProgress({ clientId: me.id, date: Date.now(), weightKg: w, photoUri: uri }));
 
       await generatePlanFor(me.id);
-      // Navega directo (funciona en web y en móvil; Alert es no-op en web).
-      router.replace('/(client)/entreno');
+      // Kike "te escribe" al terminar — refuerza que el plan es suyo, no de una máquina.
+      if (me.trainerId) {
+        const nombre = me.name.split(' ')[0];
+        sendMessage(
+          me.trainerId,
+          me.id,
+          `¡Listo, ${nombre}! Te he preparado tu plan de entreno y nutrición a tu medida. Échale un ojo y cualquier duda me escribes por aquí. 💪 — Kike`
+        );
+      }
+      // Pequeña espera para que se sienta trabajado (no instantáneo/automático).
+      setTimeout(() => router.replace('/(client)/entreno'), 1300);
     } catch (e: any) {
-      Alert.alert('No se pudo generar', e?.message ?? 'Inténtalo de nuevo.');
+      Alert.alert('No se pudo crear el plan', e?.message ?? 'Inténtalo de nuevo.');
       setLoading(false);
     }
   };
@@ -78,7 +87,7 @@ export default function Onboarding() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }} edges={['top']}>
       <View style={{ paddingHorizontal: space.lg, paddingTop: space.lg }}>
-        <Header title="Tu plan a medida" subtitle="Cuéntanos sobre ti y lo generamos" onBack={() => router.back()} />
+        <Header title="Tu plan con Kike" subtitle="Cuéntale a Kike sobre ti y te lo prepara a medida" onBack={() => router.back()} />
       </View>
       <ScrollView contentContainerStyle={{ padding: space.lg, gap: space.md, paddingBottom: 48 }} showsVerticalScrollIndicator={false}>
         <Card>
@@ -113,9 +122,9 @@ export default function Onboarding() {
           </Pressable>
         </Row>
 
-        <Button title={loading ? 'Generando…' : 'Generar mi plan a medida'} icon="sparkles" loading={loading} onPress={submit} style={{ marginTop: space.sm }} />
+        <Button title={loading ? 'Kike está preparando tu plan…' : 'Enviar a Kike y crear mi plan'} icon="barbell" loading={loading} onPress={submit} style={{ marginTop: space.sm }} />
         <Txt variant="mute" style={{ textAlign: 'center', fontSize: 12 }}>
-          El plan es un borrador personalizado que Kike revisa antes de validarlo.
+          Kike prepara y revisa personalmente tu plan a partir de tus datos.
         </Txt>
       </ScrollView>
     </SafeAreaView>
