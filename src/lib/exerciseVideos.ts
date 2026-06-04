@@ -6,6 +6,7 @@
 const PLAYLIST_PECHO = 'https://youtube.com/playlist?list=PLKw8bEuoVbuYQDPm_uzFI9CJQZCmGkM6A';
 const PLAYLIST_PIERNA = 'https://youtube.com/playlist?list=PLKw8bEuoVbuaUtgI-U3qTbgdCQtf6t99p';
 const PLAYLIST_ESPALDA = 'https://youtube.com/playlist?list=PLKw8bEuoVbuYuOIaa127q8YnYv_46Rl00';
+const PLAYLIST_HOMBRO = 'https://youtube.com/playlist?list=PLKw8bEuoVbuawdkutjntI9FYbkqMZQWD0';
 
 const EXERCISE_VIDEOS: Record<string, string> = {
   // --- PECHO: playlist real de Kike ---
@@ -27,11 +28,13 @@ const EXERCISE_VIDEOS: Record<string, string> = {
   'Jalón al pecho': PLAYLIST_ESPALDA,
   'Face pull': PLAYLIST_ESPALDA,
 
+  // --- HOMBRO: playlist real de Kike ---
+  'Press militar': PLAYLIST_HOMBRO,
+  'Elevaciones laterales': PLAYLIST_HOMBRO,
+
   // --- Resto: EJEMPLOS/placeholder hasta tener las playlists de Kike ---
-  'Press militar': 'https://www.youtube.com/watch?v=2yjwXTZQDDI',
   'Curl bíceps': 'https://www.youtube.com/watch?v=ykJmrZ5v0Oo',
   'Curl de bíceps': 'https://www.youtube.com/watch?v=ykJmrZ5v0Oo',
-  'Elevaciones laterales': 'https://www.youtube.com/watch?v=3VcKaXpzqRo',
 };
 
 export function videoFor(exerciseName: string): string | undefined {
