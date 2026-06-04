@@ -54,7 +54,7 @@ export default function ClienteDetalle() {
           title={client.name}
           subtitle={client.goal}
           onBack={() => router.back()}
-          right={<IconButton icon="sparkles" color={colors.accent} onPress={regenerate} />}
+          right={<IconButton icon="refresh" color={colors.accent} onPress={regenerate} />}
         />
         <Segmented options={SEGMENTS} value={tab} onChange={setTab} />
       </View>
