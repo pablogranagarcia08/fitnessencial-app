@@ -5,6 +5,7 @@
 // Playlists reales de Kike Grana por grupo muscular (vídeos de explicación).
 const PLAYLIST_PECHO = 'https://youtube.com/playlist?list=PLKw8bEuoVbuYQDPm_uzFI9CJQZCmGkM6A';
 const PLAYLIST_PIERNA = 'https://youtube.com/playlist?list=PLKw8bEuoVbuaUtgI-U3qTbgdCQtf6t99p';
+const PLAYLIST_ESPALDA = 'https://youtube.com/playlist?list=PLKw8bEuoVbuYuOIaa127q8YnYv_46Rl00';
 
 const EXERCISE_VIDEOS: Record<string, string> = {
   // --- PECHO: playlist real de Kike ---
@@ -19,14 +20,18 @@ const EXERCISE_VIDEOS: Record<string, string> = {
   'Zancadas': PLAYLIST_PIERNA,
   'Elevación de gemelo': PLAYLIST_PIERNA,
 
+  // --- ESPALDA: playlist real de Kike ---
+  'Remo con barra': PLAYLIST_ESPALDA,
+  'Remo mancuerna': PLAYLIST_ESPALDA,
+  'Dominadas / Jalón al pecho': PLAYLIST_ESPALDA,
+  'Jalón al pecho': PLAYLIST_ESPALDA,
+  'Face pull': PLAYLIST_ESPALDA,
+
   // --- Resto: EJEMPLOS/placeholder hasta tener las playlists de Kike ---
-  'Remo con barra': 'https://www.youtube.com/watch?v=kBWAon7ItDw',
   'Press militar': 'https://www.youtube.com/watch?v=2yjwXTZQDDI',
   'Curl bíceps': 'https://www.youtube.com/watch?v=ykJmrZ5v0Oo',
   'Curl de bíceps': 'https://www.youtube.com/watch?v=ykJmrZ5v0Oo',
   'Elevaciones laterales': 'https://www.youtube.com/watch?v=3VcKaXpzqRo',
-  'Dominadas / Jalón al pecho': 'https://www.youtube.com/watch?v=CAwf7n6Luuc',
-  'Jalón al pecho': 'https://www.youtube.com/watch?v=CAwf7n6Luuc',
 };
 
 export function videoFor(exerciseName: string): string | undefined {
