@@ -186,8 +186,8 @@ function ClientExercise({ ex, onLog, onPlay }: { ex: Exercise; onLog: (index: nu
           <Pressable onPress={() => onPlay(ex.videoUrl!)} style={({ pressed }) => [st.bigThumb, pressed && { opacity: 0.85 }]}>
             <VideoThumb url={ex.videoUrl} onPress={() => onPlay(ex.videoUrl!)} width={240} height={150} />
             <Row style={{ gap: 6, justifyContent: 'center', marginTop: 6 }}>
-              <Ionicons name="expand" size={16} color={colors.accent} />
-              <Txt style={{ color: colors.accent, fontWeight: font.semibold, fontSize: 13 }}>Ver a pantalla completa</Txt>
+              <Ionicons name="play-circle" size={18} color={colors.accent} />
+              <Txt style={{ color: colors.accent, fontWeight: font.semibold, fontSize: 13 }}>Ver vídeo de Kike</Txt>
             </Row>
           </Pressable>
         </Row>

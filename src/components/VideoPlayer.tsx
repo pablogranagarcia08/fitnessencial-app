@@ -2,9 +2,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import * as WebBrowser from 'expo-web-browser';
 import { Modal, Platform, Pressable, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { IconButton, Txt } from '@/components/ui';
-import { colors, space } from '@/lib/theme';
+import { colors, radius, space } from '@/lib/theme';
 
 // Extrae el ID de vídeo de cualquier formato de enlace de YouTube.
 export function youTubeId(url?: string): string | null {
@@ -110,37 +109,41 @@ export async function openVideoNative(url: string) {
 export function VideoModal({ url, onClose }: { url: string | null; onClose: () => void }) {
   const src = embedSrc(url);
   return (
-    <Modal visible={!!url} animationType="slide" onRequestClose={onClose} supportedOrientations={['portrait', 'landscape']}>
-      <SafeAreaView style={st.fsRoot} edges={['top', 'bottom']}>
-        <View style={st.fsBar}>
-          <Txt variant="subtitle" style={{ fontSize: 15, color: '#fff' }}>Explicación del ejercicio</Txt>
-          <IconButton icon="close" color="#fff" onPress={onClose} />
-        </View>
-        <View style={st.fsPlayer}>
-          {Platform.OS === 'web' && src ? (
-            // @ts-ignore — iframe es un elemento DOM válido en react-native-web
-            <iframe
-              src={src}
-              style={{ border: 0, width: '100%', height: '100%' }}
-              allow="autoplay; encrypted-media; fullscreen"
-              allowFullScreen
-            />
-          ) : (
-            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-              <Ionicons name="logo-youtube" size={40} color={colors.danger} />
-              <Txt variant="mute">{src ? 'Abriendo el vídeo…' : 'Enlace de vídeo no válido'}</Txt>
-            </View>
-          )}
-        </View>
-      </SafeAreaView>
+    <Modal visible={!!url} transparent animationType="fade" onRequestClose={onClose}>
+      <Pressable style={st.overlay} onPress={onClose}>
+        <Pressable style={st.box} onPress={() => {}}>
+          <View style={st.bar}>
+            <Txt variant="subtitle" style={{ fontSize: 15 }}>Explicación del ejercicio</Txt>
+            <IconButton icon="close" onPress={onClose} />
+          </View>
+          <View style={st.player}>
+            {Platform.OS === 'web' && src ? (
+              // @ts-ignore — iframe es un elemento DOM válido en react-native-web
+              <iframe
+                src={src}
+                style={{ border: 0, width: '100%', height: '100%' }}
+                allow="autoplay; encrypted-media; fullscreen"
+                allowFullScreen
+              />
+            ) : (
+              <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                <Ionicons name="logo-youtube" size={40} color={colors.danger} />
+                <Txt variant="mute">{src ? 'Abriendo el vídeo…' : 'Enlace de vídeo no válido'}</Txt>
+              </View>
+            )}
+          </View>
+        </Pressable>
+      </Pressable>
     </Modal>
   );
 }
 
 const st = StyleSheet.create({
-  fsRoot: { flex: 1, backgroundColor: '#000' },
-  fsBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: space.md, paddingVertical: space.sm, backgroundColor: colors.bg2 },
-  fsPlayer: { flex: 1, width: '100%', backgroundColor: '#000' },
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', alignItems: 'center', justifyContent: 'center', padding: space.lg },
+  // Reproductor compacto y vertical (formato del vídeo), centrado.
+  box: { width: '90%', maxWidth: 340, height: '78%', maxHeight: 620, backgroundColor: colors.card, borderRadius: radius.md, borderWidth: 1, borderColor: colors.line, overflow: 'hidden' },
+  bar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: space.md, paddingVertical: space.sm },
+  player: { flex: 1, width: '100%', backgroundColor: '#000' },
   inline: { width: '100%', borderRadius: 12, overflow: 'hidden', backgroundColor: '#000', borderWidth: 1, borderColor: colors.line },
   thumb: { borderRadius: 10, overflow: 'hidden', backgroundColor: colors.bg2, borderWidth: 1, borderColor: colors.line, alignItems: 'center', justifyContent: 'center' },
   playDot: { width: 26, height: 26, borderRadius: 13, backgroundColor: 'rgba(0,0,0,0.55)', alignItems: 'center', justifyContent: 'center' },
