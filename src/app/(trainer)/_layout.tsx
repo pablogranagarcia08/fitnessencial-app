@@ -21,6 +21,10 @@ export default function TrainerLayout() {
       }}
     >
       <Tabs.Screen
+        name="inicio"
+        options={{ title: 'Inicio', tabBarIcon: ({ color, size }) => <Ionicons name="grid" size={size} color={color} /> }}
+      />
+      <Tabs.Screen
         name="clientes"
         options={{ title: 'Clientes', tabBarIcon: ({ color, size }) => <Ionicons name="people" size={size} color={color} /> }}
       />

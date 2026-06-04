@@ -5,7 +5,7 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 import { useShallow } from 'zustand/react/shallow';
 import { planEngine, type PlanInput } from '../plan/engine';
 import { makeSeed } from './seed';
-import type { ClientProfile, DB, Exercise, Meal, NutritionPlan, ProgressEntry, SetLog, WorkoutDay } from './types';
+import type { ClientProfile, DB, Exercise, Meal, NutritionPlan, ProgressEntry, SetLog, User, WorkoutDay } from './types';
 
 // Crea/normaliza el array de series de un ejercicio al nº de series prescrito,
 // usando el objetivo (kg/reps) como valor por defecto.
@@ -46,7 +46,8 @@ interface State {
   addProgress: (entry: Omit<ProgressEntry, 'id'>) => void;
   removeProgress: (id: string) => void;
 
-  // perfil + automatización de planes
+  // CRM + perfil
+  updateUser: (userId: string, patch: Partial<User>) => void;
   setProfile: (userId: string, patch: Partial<ClientProfile>) => void;
   generatePlanFor: (clientId: string) => Promise<{ summary: string }>;
   publishPlan: (clientId: string) => void; // enviar borrador al cliente (lo activa)
@@ -261,6 +262,14 @@ export const useStore = create<State>()(
       removeProgress: (id) =>
         set((s) => ({
           db: { ...s.db, progress: s.db.progress.filter((p) => p.id !== id) },
+        })),
+
+      updateUser: (userId, patch) =>
+        set((s) => ({
+          db: {
+            ...s.db,
+            users: set2(s.db.users, (u) => u.id === userId, (u) => ({ ...u, ...patch })),
+          },
         })),
 
       setProfile: (userId, patch) =>

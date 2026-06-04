@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Alert, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ChatView } from '@/components/features/ChatView';
+import { ClientCRM } from '@/components/features/ClientCRM';
 import { NutritionView } from '@/components/features/NutritionView';
 import { ProgressView } from '@/components/features/ProgressView';
 import { WorkoutView } from '@/components/features/WorkoutView';
@@ -12,6 +13,7 @@ import { useHasDraft, useSession, useStore, useUser } from '@/lib/db/store';
 import { colors, radius, space } from '@/lib/theme';
 
 const SEGMENTS = [
+  { key: 'ficha', label: 'Ficha' },
   { key: 'entreno', label: 'Entreno' },
   { key: 'nutricion', label: 'Nutrición' },
   { key: 'progreso', label: 'Progreso' },
@@ -25,7 +27,7 @@ export default function ClienteDetalle() {
   const generatePlanFor = useStore((s) => s.generatePlanFor);
   const publishPlan = useStore((s) => s.publishPlan);
   const pending = useHasDraft(id);
-  const [tab, setTab] = useState(seg && SEGMENTS.some((s) => s.key === seg) ? seg : 'entreno');
+  const [tab, setTab] = useState(seg && SEGMENTS.some((s) => s.key === seg) ? seg : 'ficha');
 
   if (!me || !client) return null;
 
@@ -74,7 +76,7 @@ export default function ClienteDetalle() {
           right={<IconButton icon="refresh" color={colors.accent} onPress={regenerate} />}
         />
         <Segmented options={SEGMENTS} value={tab} onChange={setTab} />
-        {pending && (
+        {pending && tab !== 'ficha' && (
           <View style={st.banner}>
             <Row style={{ gap: 8 }}>
               <Ionicons name="hourglass-outline" size={18} color={colors.accent} />
@@ -91,6 +93,15 @@ export default function ClienteDetalle() {
         <ChatView meId={me.id} otherId={client.id} />
       ) : (
         <ScrollView contentContainerStyle={{ padding: space.lg, paddingTop: space.sm, paddingBottom: 48, gap: space.md }} showsVerticalScrollIndicator={false}>
+          {tab === 'ficha' && (
+            <ClientCRM
+              clientId={client.id}
+              pending={pending}
+              onMessage={() => setTab('chat')}
+              onRegenerate={regenerate}
+              onSend={sendToClient}
+            />
+          )}
           {tab === 'entreno' && <WorkoutView clientId={client.id} mode="trainer" />}
           {tab === 'nutricion' && <NutritionView clientId={client.id} mode="trainer" />}
           {tab === 'progreso' && <ProgressView clientId={client.id} mode="trainer" />}

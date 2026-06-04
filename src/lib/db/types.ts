@@ -18,6 +18,9 @@ export interface ClientProfile {
   generatedAt?: number; // cuándo se generó el último plan automático
 }
 
+// Estado del cliente en el CRM del entrenador.
+export type ClientStatus = 'active' | 'paused' | 'lead';
+
 export interface User {
   id: string;
   name: string;
@@ -27,6 +30,11 @@ export interface User {
   trainerId?: string; // solo clientes
   goal?: string; // objetivo del cliente (texto libre)
   profile?: ClientProfile;
+  // --- Campos CRM (cliente) ---
+  status?: ClientStatus; // active por defecto
+  notes?: string; // notas privadas del entrenador
+  phone?: string;
+  since?: number; // cliente desde (timestamp)
 }
 
 // Registro real de una serie hecha por el cliente.

@@ -6,7 +6,7 @@ import { colors, font } from '@/lib/theme';
 export default function ClientLayout() {
   const user = useSession();
   if (!user) return <Redirect href="/login" />;
-  if (user.role !== 'client') return <Redirect href="/(trainer)/clientes" />;
+  if (user.role !== 'client') return <Redirect href="/(trainer)/inicio" />;
 
   return (
     <Tabs

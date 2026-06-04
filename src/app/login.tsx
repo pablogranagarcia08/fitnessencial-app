@@ -12,7 +12,7 @@ export default function Login() {
 
   const enter = (id: string, role: 'trainer' | 'client') => {
     loginAs(id);
-    router.replace(role === 'trainer' ? '/(trainer)/clientes' : '/(client)/hoy');
+    router.replace(role === 'trainer' ? '/(trainer)/inicio' : '/(client)/hoy');
   };
 
   const trainer = users.find((u) => u.role === 'trainer')!;

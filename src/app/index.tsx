@@ -5,5 +5,5 @@ import { useSession } from '@/lib/db/store';
 export default function Index() {
   const user = useSession();
   if (!user) return <Redirect href="/login" />;
-  return <Redirect href={user.role === 'trainer' ? '/(trainer)/clientes' : '/(client)/hoy'} />;
+  return <Redirect href={user.role === 'trainer' ? '/(trainer)/inicio' : '/(client)/hoy'} />;
 }
