@@ -430,7 +430,9 @@ export const useStore = create<State>()(
         }),
     }),
     {
-      name: 'fitnessencial-db-v1',
+      // Sube la versión cuando cambian los datos semilla (p. ej. vídeos) para que
+      // los dispositivos refresquen la demo en vez de quedarse con datos viejos.
+      name: 'fitnessencial-db-v3',
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (s) => ({ db: s.db, sessionUserId: s.sessionUserId }),
     }
