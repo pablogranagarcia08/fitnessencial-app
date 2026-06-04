@@ -43,6 +43,7 @@ export interface Exercise {
   reps: string; // reps objetivo "8-12"
   weightKg?: number; // kg objetivo (orientativo)
   note?: string;
+  videoUrl?: string; // enlace YouTube con la explicación del ejercicio (Kike)
   done: boolean; // (compat) — el estado real se deriva de logs
   logs?: SetLog[]; // lo que el cliente registró por serie
 }

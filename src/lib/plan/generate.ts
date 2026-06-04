@@ -1,4 +1,5 @@
 import type { Activity, Experience, GoalType, Meal, NutritionPlan, Sex, WorkoutDay, WorkoutPlan } from '../db/types';
+import { videoFor } from '../exerciseVideos';
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 const round = (n: number, step = 1) => Math.round(n / step) * step;
@@ -114,6 +115,7 @@ function buildWorkout(input: PlanInput): WorkoutPlan {
       sets,
       reps,
       done: false,
+      videoUrl: videoFor(name),
     })),
   }));
 

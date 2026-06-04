@@ -1,6 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { useState } from 'react';
+import { Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { Button, Card, EmptyState, IconButton, Row, SectionTitle, Txt } from '@/components/ui';
+import { openVideoNative, VideoModal, youTubeId } from '@/components/VideoPlayer';
 import { useStore, useWorkoutPlan } from '@/lib/db/store';
 import type { Exercise } from '@/lib/db/types';
 import { colors, font, radius, space } from '@/lib/theme';
@@ -11,6 +13,13 @@ const exDone = (e: Exercise) => e.sets > 0 && Array.from({ length: e.sets }).eve
 export function WorkoutView({ clientId, mode }: { clientId: string; mode: 'client' | 'trainer' }) {
   const plan = useWorkoutPlan(clientId);
   const { logSet, updateExercise, addExercise, removeExercise, addWorkoutDay, resetDayProgress } = useStore();
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
+
+  // En web reproduce en un modal; en móvil abre YouTube/navegador.
+  const playVideo = (url: string) => {
+    if (Platform.OS === 'web') setVideoUrl(url);
+    else openVideoNative(url);
+  };
 
   if (!plan) {
     return <EmptyState icon="barbell-outline" text="Aún no hay rutina asignada." />;
@@ -18,6 +27,7 @@ export function WorkoutView({ clientId, mode }: { clientId: string; mode: 'clien
 
   return (
     <View style={{ gap: space.md }}>
+      <VideoModal url={videoUrl} onClose={() => setVideoUrl(null)} />
       <SectionTitle>{plan.name}</SectionTitle>
 
       {plan.days.map((day) => {
@@ -44,6 +54,7 @@ export function WorkoutView({ clientId, mode }: { clientId: string; mode: 'clien
                   key={ex.id}
                   ex={ex}
                   onLog={(index, patch) => logSet(plan.id, day.id, ex.id, index, patch)}
+                  onPlay={playVideo}
                 />
               ) : (
                 <View key={ex.id} style={st.editCard}>
@@ -69,6 +80,20 @@ export function WorkoutView({ clientId, mode }: { clientId: string; mode: 'clien
                     <NumField label="Kg" value={ex.weightKg ?? 0} onChange={(n) => updateExercise(plan.id, day.id, ex.id, { weightKg: n })} />
                     <IconButton icon="trash-outline" color={colors.danger} size={20} onPress={() => removeExercise(plan.id, day.id, ex.id)} style={{ paddingBottom: 8 }} />
                   </View>
+                  <Row style={{ gap: 8 }}>
+                    <Ionicons name="logo-youtube" size={18} color={youTubeId(ex.videoUrl) ? colors.danger : colors.mute} />
+                    <TextInput
+                      value={ex.videoUrl ?? ''}
+                      onChangeText={(t) => updateExercise(plan.id, day.id, ex.id, { videoUrl: t })}
+                      style={[st.editInput, { flex: 1 }]}
+                      placeholder="Enlace YouTube de la explicación"
+                      placeholderTextColor={colors.mute}
+                      autoCapitalize="none"
+                    />
+                    {youTubeId(ex.videoUrl) && (
+                      <IconButton icon="play-circle" color={colors.accent} size={22} onPress={() => playVideo(ex.videoUrl!)} />
+                    )}
+                  </Row>
                   <LoggedSummary ex={ex} />
                 </View>
               )
@@ -93,8 +118,9 @@ export function WorkoutView({ clientId, mode }: { clientId: string; mode: 'clien
 }
 
 // Vista del cliente: registra kg y reps reales por cada serie.
-function ClientExercise({ ex, onLog }: { ex: Exercise; onLog: (index: number, patch: Partial<{ weightKg: number; reps: string; done: boolean }>) => void }) {
+function ClientExercise({ ex, onLog, onPlay }: { ex: Exercise; onLog: (index: number, patch: Partial<{ weightKg: number; reps: string; done: boolean }>) => void; onPlay: (url: string) => void }) {
   const allDone = exDone(ex);
+  const hasVideo = !!youTubeId(ex.videoUrl);
   return (
     <View style={st.clientEx}>
       <Row style={{ justifyContent: 'space-between' }}>
@@ -107,6 +133,13 @@ function ClientExercise({ ex, onLog }: { ex: Exercise; onLog: (index: number, pa
         </Txt>
       </Row>
       {ex.note ? <Txt variant="mute" style={{ fontStyle: 'italic', marginLeft: 30 }}>{ex.note}</Txt> : null}
+
+      {hasVideo && (
+        <Pressable onPress={() => onPlay(ex.videoUrl!)} style={({ pressed }) => [st.videoBtn, pressed && { opacity: 0.7 }]}>
+          <Ionicons name="play-circle" size={20} color={colors.accent} />
+          <Txt style={{ color: colors.accent, fontWeight: font.semibold, fontSize: 13 }}>Ver explicación de Kike</Txt>
+        </Pressable>
+      )}
 
       <View style={{ gap: 6, marginTop: 4 }}>
         <Row style={{ paddingHorizontal: 4 }}>
@@ -211,6 +244,7 @@ const st = StyleSheet.create({
   exRow: { flexDirection: 'row', alignItems: 'center', gap: space.sm, paddingVertical: 6 },
   strike: { textDecorationLine: 'line-through', color: colors.mute },
   clientEx: { gap: 4, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.lineSoft },
+  videoBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', marginLeft: 30, marginTop: 2, paddingVertical: 4, paddingHorizontal: 10, borderRadius: radius.pill, backgroundColor: colors.accentDim, borderWidth: 1, borderColor: colors.line },
   setRow: { gap: 8 },
   setInput: {
     backgroundColor: colors.bg2,

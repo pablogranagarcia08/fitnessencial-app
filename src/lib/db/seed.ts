@@ -1,3 +1,4 @@
+import { videoFor } from '../exerciseVideos';
 import type { DB } from './types';
 
 const day = 24 * 60 * 60 * 1000;
@@ -5,7 +6,7 @@ const now = Date.now();
 
 // Datos de ejemplo: 1 entrenador (Kike) + 2 clientes, con planes, chat y progreso.
 export function makeSeed(): DB {
-  return {
+  const db: DB = {
     users: [
       {
         id: 'trainer-kike',
@@ -161,4 +162,15 @@ export function makeSeed(): DB {
       { id: 'p7', clientId: 'client-david', date: now - 1 * day, weightKg: 79.2 },
     ],
   };
+
+  // Adjunta el vídeo de explicación a cada ejercicio que tenga uno disponible.
+  db.workoutPlans.forEach((p) =>
+    p.days.forEach((d) =>
+      d.exercises.forEach((e) => {
+        if (!e.videoUrl) e.videoUrl = videoFor(e.name);
+      })
+    )
+  );
+
+  return db;
 }
