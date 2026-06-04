@@ -140,10 +140,10 @@ export function VideoModal({ url, onClose }: { url: string | null; onClose: () =
 
 const st = StyleSheet.create({
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', alignItems: 'center', justifyContent: 'center', padding: space.lg },
-  // Reproductor compacto y vertical (formato del vídeo), centrado.
-  box: { width: '90%', maxWidth: 340, height: '78%', maxHeight: 620, backgroundColor: colors.card, borderRadius: radius.md, borderWidth: 1, borderColor: colors.line, overflow: 'hidden' },
+  // Reproductor horizontal (apaisado 16:9), centrado.
+  box: { width: '94%', maxWidth: 640, backgroundColor: colors.card, borderRadius: radius.md, borderWidth: 1, borderColor: colors.line, overflow: 'hidden' },
   bar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: space.md, paddingVertical: space.sm },
-  player: { flex: 1, width: '100%', backgroundColor: '#000' },
+  player: { width: '100%', aspectRatio: 16 / 9, backgroundColor: '#000' },
   inline: { width: '100%', borderRadius: 12, overflow: 'hidden', backgroundColor: '#000', borderWidth: 1, borderColor: colors.line },
   thumb: { borderRadius: 10, overflow: 'hidden', backgroundColor: colors.bg2, borderWidth: 1, borderColor: colors.line, alignItems: 'center', justifyContent: 'center' },
   playDot: { width: 26, height: 26, borderRadius: 13, backgroundColor: 'rgba(0,0,0,0.55)', alignItems: 'center', justifyContent: 'center' },
