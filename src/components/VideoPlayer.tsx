@@ -51,6 +51,28 @@ export function videoThumb(url?: string): string | null {
   return null;
 }
 
+// Reproductor incrustado en línea (al lado del ejercicio). En web muestra el vídeo;
+// en móvil muestra una miniatura grande que abre el vídeo en el navegador/app.
+export function InlineVideo({ url, height = 420 }: { url?: string; height?: number }) {
+  const src = embedSrc(url ?? null);
+  if (Platform.OS === 'web' && src) {
+    return (
+      <View style={[st.inline, { height }]}>
+        {/* @ts-ignore — iframe es válido en react-native-web */}
+        <iframe src={src} style={{ border: 0, width: '100%', height: '100%' }} allow="autoplay; encrypted-media; fullscreen" allowFullScreen />
+      </View>
+    );
+  }
+  // Móvil: miniatura a tamaño completo que abre el vídeo.
+  const thumb = videoThumb(url);
+  return (
+    <Pressable onPress={() => url && openVideoNative(url)} style={[st.inline, { height, alignItems: 'center', justifyContent: 'center' }]}>
+      {thumb ? <Image source={{ uri: thumb }} style={StyleSheet.absoluteFill} contentFit="cover" /> : null}
+      <View style={st.playDot}><Ionicons name="play" size={16} color="#fff" /></View>
+    </Pressable>
+  );
+}
+
 // Miniatura clicable que se coloca al lado de cada ejercicio.
 export function VideoThumb({ url, onPress, width = 78, height = 50 }: { url?: string; onPress: () => void; width?: number; height?: number }) {
   const thumb = videoThumb(url);
@@ -121,6 +143,7 @@ const st = StyleSheet.create({
   box: { width: '94%', maxWidth: 460, height: '88%', maxHeight: 820, backgroundColor: colors.card, borderRadius: radius.md, borderWidth: 1, borderColor: colors.line, overflow: 'hidden' },
   bar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: space.md, paddingVertical: space.sm },
   player: { flex: 1, width: '100%', backgroundColor: '#000' },
+  inline: { width: '100%', borderRadius: 12, overflow: 'hidden', backgroundColor: '#000', borderWidth: 1, borderColor: colors.line },
   thumb: { borderRadius: 10, overflow: 'hidden', backgroundColor: colors.bg2, borderWidth: 1, borderColor: colors.line, alignItems: 'center', justifyContent: 'center' },
   playDot: { width: 26, height: 26, borderRadius: 13, backgroundColor: 'rgba(0,0,0,0.55)', alignItems: 'center', justifyContent: 'center' },
 });

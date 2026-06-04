@@ -1,8 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
-import { Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, TextInput, useWindowDimensions, View } from 'react-native';
 import { Button, Card, EmptyState, IconButton, Row, SectionTitle, Txt } from '@/components/ui';
-import { hasVideo, openVideoNative, VideoModal, VideoThumb } from '@/components/VideoPlayer';
+import { hasVideo, InlineVideo, openVideoNative, VideoModal, VideoThumb } from '@/components/VideoPlayer';
 import { useStore, useWorkoutPlan } from '@/lib/db/store';
 import type { Exercise } from '@/lib/db/types';
 import { colors, font, radius, space } from '@/lib/theme';
@@ -121,6 +121,49 @@ export function WorkoutView({ clientId, mode }: { clientId: string; mode: 'clien
 function ClientExercise({ ex, onLog, onPlay }: { ex: Exercise; onLog: (index: number, patch: Partial<{ weightKg: number; reps: string; done: boolean }>) => void; onPlay: (url: string) => void }) {
   const allDone = exDone(ex);
   const exHasVideo = hasVideo(ex.videoUrl);
+  const { width } = useWindowDimensions();
+  const wide = width >= 640 && exHasVideo; // en ancho, vídeo a la derecha de la tabla
+  const [showVideo, setShowVideo] = useState(false);
+
+  const setsTable = (
+    <View style={{ gap: 6, marginTop: 4, flex: 1 }}>
+      <Row style={{ paddingHorizontal: 4 }}>
+        <Txt variant="label" style={{ width: 52, fontSize: 10 }}>SERIE</Txt>
+        <Txt variant="label" style={{ width: 96, fontSize: 10, textAlign: 'center' }}>KG</Txt>
+        <Txt variant="label" style={{ width: 84, fontSize: 10, textAlign: 'center' }}>REPS</Txt>
+        <View style={{ width: 34 }} />
+      </Row>
+      {Array.from({ length: ex.sets }).map((_, i) => {
+        const log = ex.logs?.[i];
+        const done = !!log?.done;
+        return (
+          <Row key={i} style={st.setRow}>
+            <Txt style={{ width: 52, color: colors.inkSoft, fontWeight: font.semibold }}>{i + 1}ª</Txt>
+            <TextInput
+              value={log?.weightKg != null ? String(log.weightKg) : ''}
+              onChangeText={(t) => onLog(i, { weightKg: Number(t.replace(',', '.').replace(/[^0-9.]/g, '')) || 0 })}
+              keyboardType="numeric"
+              placeholder={ex.weightKg ? String(ex.weightKg) : '–'}
+              placeholderTextColor={colors.mute}
+              style={[st.setInput, { width: 96 }]}
+            />
+            <TextInput
+              value={log?.reps ?? ''}
+              onChangeText={(t) => onLog(i, { reps: t })}
+              keyboardType="numeric"
+              placeholder={ex.reps}
+              placeholderTextColor={colors.mute}
+              style={[st.setInput, { width: 84 }]}
+            />
+            <Pressable onPress={() => onLog(i, { done: !done })} hitSlop={8} style={{ width: 34, alignItems: 'center' }}>
+              <Ionicons name={done ? 'checkmark-circle' : 'ellipse-outline'} size={26} color={done ? colors.success : colors.mute} />
+            </Pressable>
+          </Row>
+        );
+      })}
+    </View>
+  );
+
   return (
     <View style={st.clientEx}>
       <Row style={{ justifyContent: 'space-between', gap: 8 }}>
@@ -133,46 +176,31 @@ function ClientExercise({ ex, onLog, onPlay }: { ex: Exercise; onLog: (index: nu
             </Txt>
           </View>
         </Row>
-        {exHasVideo && <VideoThumb url={ex.videoUrl} onPress={() => onPlay(ex.videoUrl!)} />}
+        {/* En móvil estrecho: miniatura que abre el vídeo a pantalla completa */}
+        {exHasVideo && !wide && <VideoThumb url={ex.videoUrl} onPress={() => onPlay(ex.videoUrl!)} />}
       </Row>
       {ex.note ? <Txt variant="mute" style={{ fontStyle: 'italic', marginLeft: 30 }}>{ex.note}</Txt> : null}
 
-      <View style={{ gap: 6, marginTop: 4 }}>
-        <Row style={{ paddingHorizontal: 4 }}>
-          <Txt variant="label" style={{ width: 52, fontSize: 10 }}>SERIE</Txt>
-          <Txt variant="label" style={{ width: 96, fontSize: 10, textAlign: 'center' }}>KG</Txt>
-          <Txt variant="label" style={{ width: 84, fontSize: 10, textAlign: 'center' }}>REPS</Txt>
-          <View style={{ width: 34 }} />
-        </Row>
-        {Array.from({ length: ex.sets }).map((_, i) => {
-          const log = ex.logs?.[i];
-          const done = !!log?.done;
-          return (
-            <Row key={i} style={st.setRow}>
-              <Txt style={{ width: 52, color: colors.inkSoft, fontWeight: font.semibold }}>{i + 1}ª</Txt>
-              <TextInput
-                value={log?.weightKg != null ? String(log.weightKg) : ''}
-                onChangeText={(t) => onLog(i, { weightKg: Number(t.replace(',', '.').replace(/[^0-9.]/g, '')) || 0 })}
-                keyboardType="numeric"
-                placeholder={ex.weightKg ? String(ex.weightKg) : '–'}
-                placeholderTextColor={colors.mute}
-                style={[st.setInput, { width: 96 }]}
-              />
-              <TextInput
-                value={log?.reps ?? ''}
-                onChangeText={(t) => onLog(i, { reps: t })}
-                keyboardType="numeric"
-                placeholder={ex.reps}
-                placeholderTextColor={colors.mute}
-                style={[st.setInput, { width: 84 }]}
-              />
-              <Pressable onPress={() => onLog(i, { done: !done })} hitSlop={8} style={{ width: 34, alignItems: 'center' }}>
-                <Ionicons name={done ? 'checkmark-circle' : 'ellipse-outline'} size={26} color={done ? colors.success : colors.mute} />
+      {wide ? (
+        <Row style={{ gap: space.md, alignItems: 'flex-start', marginTop: 4 }}>
+          {setsTable}
+          <View style={{ width: 240 }}>
+            {showVideo ? (
+              <InlineVideo url={ex.videoUrl} height={360} />
+            ) : (
+              <Pressable onPress={() => setShowVideo(true)} style={({ pressed }) => [st.bigThumb, pressed && { opacity: 0.85 }]}>
+                <VideoThumb url={ex.videoUrl} onPress={() => setShowVideo(true)} width={240} height={150} />
+                <Row style={{ gap: 6, justifyContent: 'center', marginTop: 6 }}>
+                  <Ionicons name="play-circle" size={18} color={colors.accent} />
+                  <Txt style={{ color: colors.accent, fontWeight: font.semibold, fontSize: 13 }}>Ver vídeo de Kike</Txt>
+                </Row>
               </Pressable>
-            </Row>
-          );
-        })}
-      </View>
+            )}
+          </View>
+        </Row>
+      ) : (
+        setsTable
+      )}
     </View>
   );
 }
@@ -240,6 +268,7 @@ const st = StyleSheet.create({
   exRow: { flexDirection: 'row', alignItems: 'center', gap: space.sm, paddingVertical: 6 },
   strike: { textDecorationLine: 'line-through', color: colors.mute },
   clientEx: { gap: 4, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.lineSoft },
+  bigThumb: { alignItems: 'center' },
   videoBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', marginLeft: 30, marginTop: 2, paddingVertical: 4, paddingHorizontal: 10, borderRadius: radius.pill, backgroundColor: colors.accentDim, borderWidth: 1, borderColor: colors.line },
   setRow: { gap: 8 },
   setInput: {
