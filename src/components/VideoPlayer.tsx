@@ -22,6 +22,26 @@ export function youTubeId(url?: string): string | null {
   return null;
 }
 
+// Extrae el ID de una playlist de YouTube (enlaces con ?list=...).
+export function youTubePlaylistId(url?: string): string | null {
+  if (!url) return null;
+  const m = url.match(/[?&]list=([\w-]+)/);
+  return m ? m[1] : null;
+}
+
+// ¿El enlace es de YouTube reproducible (vídeo o playlist)?
+export function hasYouTube(url?: string): boolean {
+  return !!(youTubeId(url) || youTubePlaylistId(url));
+}
+
+function embedSrc(url: string | null): string | null {
+  const id = youTubeId(url ?? undefined);
+  const list = youTubePlaylistId(url ?? undefined);
+  if (id) return `https://www.youtube.com/embed/${id}?autoplay=1&rel=0${list ? `&list=${list}` : ''}`;
+  if (list) return `https://www.youtube.com/embed/videoseries?list=${list}&autoplay=1&rel=0`;
+  return null;
+}
+
 // Abre el vídeo: en web muestra el modal (iframe); en móvil abre YouTube/navegador.
 export async function openVideoNative(url: string) {
   try {
@@ -31,7 +51,7 @@ export async function openVideoNative(url: string) {
 
 // Modal de reproducción (solo se usa en web; en móvil se abre el navegador).
 export function VideoModal({ url, onClose }: { url: string | null; onClose: () => void }) {
-  const id = youTubeId(url ?? undefined);
+  const src = embedSrc(url);
   return (
     <Modal visible={!!url} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={st.overlay} onPress={onClose}>
@@ -41,10 +61,10 @@ export function VideoModal({ url, onClose }: { url: string | null; onClose: () =
             <IconButton icon="close" onPress={onClose} />
           </View>
           <View style={st.player}>
-            {Platform.OS === 'web' && id ? (
+            {Platform.OS === 'web' && src ? (
               // @ts-ignore — iframe es un elemento DOM válido en react-native-web
               <iframe
-                src={`https://www.youtube.com/embed/${id}?autoplay=1&rel=0`}
+                src={src}
                 style={{ border: 0, width: '100%', height: '100%', borderRadius: 12 }}
                 allow="autoplay; encrypted-media; fullscreen"
                 allowFullScreen
@@ -52,7 +72,7 @@ export function VideoModal({ url, onClose }: { url: string | null; onClose: () =
             ) : (
               <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8 }}>
                 <Ionicons name="logo-youtube" size={40} color={colors.danger} />
-                <Txt variant="mute">{id ? 'Abriendo el vídeo…' : 'Enlace de vídeo no válido'}</Txt>
+                <Txt variant="mute">{src ? 'Abriendo el vídeo…' : 'Enlace de vídeo no válido'}</Txt>
               </View>
             )}
           </View>
