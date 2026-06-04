@@ -12,7 +12,7 @@ const exDone = (e: Exercise) => e.sets > 0 && Array.from({ length: e.sets }).eve
 
 export function WorkoutView({ clientId, mode }: { clientId: string; mode: 'client' | 'trainer' }) {
   const plan = useWorkoutPlan(clientId);
-  const { logSet, updateExercise, addExercise, removeExercise, addWorkoutDay, resetDayProgress } = useStore();
+  const { logSet, updateExercise, addExercise, removeExercise, addWorkoutDay, resetDayProgress, createWorkoutPlan } = useStore();
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
 
   // En web reproduce en un modal; en móvil abre YouTube/navegador.
@@ -22,7 +22,14 @@ export function WorkoutView({ clientId, mode }: { clientId: string; mode: 'clien
   };
 
   if (!plan) {
-    return <EmptyState icon="barbell-outline" text="Aún no hay rutina asignada." />;
+    return (
+      <View style={{ gap: space.md }}>
+        <EmptyState icon="barbell-outline" text="Aún no hay rutina asignada." />
+        {mode === 'trainer' && (
+          <Button title="Crear plan de entreno" icon="add" onPress={() => createWorkoutPlan(clientId)} />
+        )}
+      </View>
+    );
   }
 
   return (

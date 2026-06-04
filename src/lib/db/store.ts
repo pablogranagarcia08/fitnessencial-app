@@ -69,6 +69,8 @@ interface State {
   setProfile: (userId: string, patch: Partial<ClientProfile>) => void;
   generatePlanFor: (clientId: string) => Promise<{ summary: string }>;
   publishPlan: (clientId: string) => void; // enviar borrador al cliente (lo activa)
+  createWorkoutPlan: (clientId: string) => void; // crear plan de entreno vacío (borrador)
+  createNutritionPlan: (clientId: string) => void; // crear plan de nutrición vacío (borrador)
 }
 
 const set2 = <T,>(arr: T[], pred: (x: T) => boolean, fn: (x: T) => T): T[] =>
@@ -399,6 +401,45 @@ export const useStore = create<State>()(
 
         return { summary: result.summary };
       },
+
+      createWorkoutPlan: (clientId) =>
+        set((s) => ({
+          db: {
+            ...s.db,
+            workoutPlans: [
+              ...s.db.workoutPlans.filter((p) => p.clientId !== clientId),
+              {
+                id: uid(),
+                clientId,
+                name: 'Plan personalizado',
+                status: 'draft',
+                updatedAt: Date.now(),
+                days: [{ id: uid(), name: 'Día 1', exercises: [] }],
+              },
+            ],
+          },
+        })),
+
+      createNutritionPlan: (clientId) =>
+        set((s) => ({
+          db: {
+            ...s.db,
+            nutritionPlans: [
+              ...s.db.nutritionPlans.filter((p) => p.clientId !== clientId),
+              {
+                id: uid(),
+                clientId,
+                dailyKcal: 2000,
+                protein: 150,
+                carbs: 200,
+                fat: 60,
+                meals: [],
+                status: 'draft',
+                updatedAt: Date.now(),
+              },
+            ],
+          },
+        })),
 
       // El entrenador envía el borrador al cliente: lo marca activo y le avisa por chat.
       publishPlan: (clientId) =>

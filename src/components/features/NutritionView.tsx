@@ -6,9 +6,18 @@ import { colors, font, radius, space } from '@/lib/theme';
 
 export function NutritionView({ clientId, mode }: { clientId: string; mode: 'client' | 'trainer' }) {
   const plan = useNutritionPlan(clientId);
-  const { updateNutrition, addMeal, removeMeal, addMealItem, removeMealItem } = useStore();
+  const { updateNutrition, addMeal, removeMeal, addMealItem, removeMealItem, createNutritionPlan } = useStore();
 
-  if (!plan) return <EmptyState icon="nutrition-outline" text="Aún no hay plan de nutrición." />;
+  if (!plan) {
+    return (
+      <View style={{ gap: space.md }}>
+        <EmptyState icon="nutrition-outline" text="Aún no hay plan de nutrición." />
+        {mode === 'trainer' && (
+          <Button title="Crear plan de nutrición" icon="add" onPress={() => createNutritionPlan(clientId)} />
+        )}
+      </View>
+    );
+  }
 
   const editable = mode === 'trainer';
 
