@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { Button, Card, EmptyState, IconButton, Row, SectionTitle, Txt } from '@/components/ui';
-import { hasYouTube, openVideoNative, VideoModal } from '@/components/VideoPlayer';
+import { hasVideo, openVideoNative, VideoModal } from '@/components/VideoPlayer';
 import { useStore, useWorkoutPlan } from '@/lib/db/store';
 import type { Exercise } from '@/lib/db/types';
 import { colors, font, radius, space } from '@/lib/theme';
@@ -81,16 +81,16 @@ export function WorkoutView({ clientId, mode }: { clientId: string; mode: 'clien
                     <IconButton icon="trash-outline" color={colors.danger} size={20} onPress={() => removeExercise(plan.id, day.id, ex.id)} style={{ paddingBottom: 8 }} />
                   </View>
                   <Row style={{ gap: 8 }}>
-                    <Ionicons name="logo-youtube" size={18} color={hasYouTube(ex.videoUrl) ? colors.danger : colors.mute} />
+                    <Ionicons name="videocam" size={18} color={hasVideo(ex.videoUrl) ? colors.accent : colors.mute} />
                     <TextInput
                       value={ex.videoUrl ?? ''}
                       onChangeText={(t) => updateExercise(plan.id, day.id, ex.id, { videoUrl: t })}
                       style={[st.editInput, { flex: 1 }]}
-                      placeholder="Enlace YouTube de la explicación"
+                      placeholder="Enlace del vídeo (YouTube o Drive)"
                       placeholderTextColor={colors.mute}
                       autoCapitalize="none"
                     />
-                    {hasYouTube(ex.videoUrl) && (
+                    {hasVideo(ex.videoUrl) && (
                       <IconButton icon="play-circle" color={colors.accent} size={22} onPress={() => playVideo(ex.videoUrl!)} />
                     )}
                   </Row>
@@ -120,7 +120,7 @@ export function WorkoutView({ clientId, mode }: { clientId: string; mode: 'clien
 // Vista del cliente: registra kg y reps reales por cada serie.
 function ClientExercise({ ex, onLog, onPlay }: { ex: Exercise; onLog: (index: number, patch: Partial<{ weightKg: number; reps: string; done: boolean }>) => void; onPlay: (url: string) => void }) {
   const allDone = exDone(ex);
-  const hasVideo = hasYouTube(ex.videoUrl);
+  const exHasVideo = hasVideo(ex.videoUrl);
   return (
     <View style={st.clientEx}>
       <Row style={{ justifyContent: 'space-between' }}>
@@ -134,7 +134,7 @@ function ClientExercise({ ex, onLog, onPlay }: { ex: Exercise; onLog: (index: nu
       </Row>
       {ex.note ? <Txt variant="mute" style={{ fontStyle: 'italic', marginLeft: 30 }}>{ex.note}</Txt> : null}
 
-      {hasVideo && (
+      {exHasVideo && (
         <Pressable onPress={() => onPlay(ex.videoUrl!)} style={({ pressed }) => [st.videoBtn, pressed && { opacity: 0.7 }]}>
           <Ionicons name="play-circle" size={20} color={colors.accent} />
           <Txt style={{ color: colors.accent, fontWeight: font.semibold, fontSize: 13 }}>Ver explicación de Kike</Txt>

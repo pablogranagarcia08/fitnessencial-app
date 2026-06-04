@@ -1,48 +1,44 @@
-// Vídeos de explicación por ejercicio (YouTube).
-// ⚠️ EJEMPLOS / PLACEHOLDERS — sustituir por los vídeos reales de Kike Grana.
-// Para cambiarlos: pega aquí el enlace de YouTube de Kike, o edítalo desde la
-// app en la vista del entrenador (campo "Enlace YouTube" de cada ejercicio).
-// Playlists reales de Kike Grana por grupo muscular (vídeos de explicación).
-const PLAYLIST_PECHO = 'https://youtube.com/playlist?list=PLKw8bEuoVbuYQDPm_uzFI9CJQZCmGkM6A';
+// Vídeos de explicación por ejercicio.
+// Vídeos REALES de Kike Grana (biblioteca en Google Drive) — enlace exacto por ejercicio.
+// Para cambiarlos: pega el enlace (YouTube o Drive) desde la vista de entrenador.
+const drive = (id: string) => `https://drive.google.com/file/d/${id}/view`;
+
+// Respaldo: playlist de pierna de Kike, para ejercicios sin vídeo exacto (p. ej. gemelo).
 const PLAYLIST_PIERNA = 'https://youtube.com/playlist?list=PLKw8bEuoVbuaUtgI-U3qTbgdCQtf6t99p';
-const PLAYLIST_ESPALDA = 'https://youtube.com/playlist?list=PLKw8bEuoVbuYuOIaa127q8YnYv_46Rl00';
-const PLAYLIST_HOMBRO = 'https://youtube.com/playlist?list=PLKw8bEuoVbuawdkutjntI9FYbkqMZQWD0';
-const PLAYLIST_BRAZO = 'https://youtube.com/playlist?list=PLKw8bEuoVbuZhzu_isD_K82ilvwV5-irs';
-const PLAYLIST_ABDOMEN = 'https://youtube.com/playlist?list=PLKw8bEuoVbuZQfQ-90_c8soph79590D0U';
 
 const EXERCISE_VIDEOS: Record<string, string> = {
-  // --- PECHO: playlist real de Kike ---
-  'Press banca': PLAYLIST_PECHO,
-  'Press inclinado mancuerna': PLAYLIST_PECHO,
+  // PECHO
+  'Press banca': drive('1HDS4cEzXBIHwpH8UD9-1jnv6cucrcWFc'), // PRESS BANCA PAUSA
+  'Press inclinado mancuerna': drive('10ny0wEd6fTsKW_OXm_JF2w9_5p5ZeLEa'), // PRESS INCLINADO MANCUERNAS 30°
 
-  // --- PIERNA: playlist real de Kike ---
-  'Sentadilla': PLAYLIST_PIERNA,
-  'Peso muerto rumano': PLAYLIST_PIERNA,
-  'Prensa': PLAYLIST_PIERNA,
-  'Curl femoral': PLAYLIST_PIERNA,
-  'Zancadas': PLAYLIST_PIERNA,
-  'Elevación de gemelo': PLAYLIST_PIERNA,
+  // PIERNA
+  'Sentadilla': drive('1bWZiAKSDOO80kAk4LmR6qLKqMDGxh_oE'), // SENTADILLA MULTIPOWER
+  'Peso muerto rumano': drive('19NqC_qDpAzAZ37QR1jyMOfsubbORiPb1'), // PESO MUERTO RUMANO
+  'Prensa': drive('1jujShLj4v1qVHPs0mP9w-8mdsZbhetlr'), // PRENSA
+  'Curl femoral': drive('11MFOrWh6hCtFgOftMShez_Wsb3bm90b3'), // CURL FEMORAL TUMBADO
+  'Zancadas': drive('1x8uw89iPY1NiiCt0A7jGFDtM9nygrDEH'), // SENTADILLA BÚLGARA
+  'Elevación de gemelo': PLAYLIST_PIERNA, // (sin vídeo exacto)
 
-  // --- ESPALDA: playlist real de Kike ---
-  'Remo con barra': PLAYLIST_ESPALDA,
-  'Remo mancuerna': PLAYLIST_ESPALDA,
-  'Dominadas / Jalón al pecho': PLAYLIST_ESPALDA,
-  'Jalón al pecho': PLAYLIST_ESPALDA,
-  'Face pull': PLAYLIST_ESPALDA,
+  // ESPALDA
+  'Remo con barra': drive('1aS2r_NsaMmoq8JsrdqIuzpaLIYAwXSjo'), // REMO CON BARRA
+  'Remo mancuerna': drive('1uR9vk-TpYEHEr4rJObmmoLAjyBSXlc2v'), // REMO DORIAN
+  'Dominadas / Jalón al pecho': drive('1TVh5mHTngWhP3SaoyepViyexDgsWtqJS'), // DOMINADAS AGARRE NEUTRO
+  'Jalón al pecho': drive('1ty94ZPZjD4ir1JuuuB41XHBRa82zcDYi'), // JALON AL PECHO NEUTRO
+  'Face pull': drive('1vjcjtRfP0-v3_Au7GgMhoRVHC7cTQtUl'), // RETRACCIONES CON BANDAS
 
-  // --- HOMBRO: playlist real de Kike ---
-  'Press militar': PLAYLIST_HOMBRO,
-  'Elevaciones laterales': PLAYLIST_HOMBRO,
+  // HOMBRO
+  'Press militar': drive('153PeD5_XVS6-Yyj0gJkoKb0z-KrFMzLV'), // PRESS MILITAR MAQUINA
+  'Elevaciones laterales': drive('19cdYYp750PBKL0jq0WQ9CxPosHHbO-hO'), // ELEVACIONES LATERALES MANCUERNAS
 
-  // --- BRAZO (bíceps + tríceps): playlist real de Kike ---
-  'Curl bíceps': PLAYLIST_BRAZO,
-  'Curl de bíceps': PLAYLIST_BRAZO,
-  'Extensión de tríceps': PLAYLIST_BRAZO,
+  // BRAZO
+  'Curl bíceps': drive('11TCinSrTtnQ12f4mjpo8AduFFnpJZsrj'), // CURL SCOTT MÁQUINA
+  'Curl de bíceps': drive('11TCinSrTtnQ12f4mjpo8AduFFnpJZsrj'),
+  'Extensión de tríceps': drive('10_tLeV8X0mJqTxy2JyWi5NDt_FVJBWSd'), // EXTENSIÓN OVERHEAD POLEA
 
-  // --- ABDOMEN: playlist real de Kike ---
-  'Plancha': PLAYLIST_ABDOMEN,
-  'Abdominales': PLAYLIST_ABDOMEN,
-  'Crunch': PLAYLIST_ABDOMEN,
+  // ABDOMEN
+  'Plancha': drive('1AmY8kfxuMNL6A9AjTVZOB4XaLevxrdyT'), // ELEVACION DE PIERNAS
+  'Abdominales': drive('1kgtitipBzSpM-QA1oTaA3sJ-zbqvpfXz'), // CRUNCH MAQUINA
+  'Crunch': drive('1kgtitipBzSpM-QA1oTaA3sJ-zbqvpfXz'),
 };
 
 export function videoFor(exerciseName: string): string | undefined {

@@ -29,12 +29,21 @@ export function youTubePlaylistId(url?: string): string | null {
   return m ? m[1] : null;
 }
 
-// ¿El enlace es de YouTube reproducible (vídeo o playlist)?
-export function hasYouTube(url?: string): boolean {
-  return !!(youTubeId(url) || youTubePlaylistId(url));
+// Extrae el ID de un archivo de Google Drive (enlaces /file/d/ID o ?id=ID).
+export function driveId(url?: string): string | null {
+  if (!url) return null;
+  const m = url.match(/\/file\/d\/([\w-]+)/) || url.match(/[?&]id=([\w-]+)/);
+  return m && url.includes('drive.google.com') ? m[1] : null;
+}
+
+// ¿El enlace es reproducible (YouTube vídeo/playlist o Google Drive)?
+export function hasVideo(url?: string): boolean {
+  return !!(youTubeId(url) || youTubePlaylistId(url) || driveId(url));
 }
 
 function embedSrc(url: string | null): string | null {
+  const drive = driveId(url ?? undefined);
+  if (drive) return `https://drive.google.com/file/d/${drive}/preview`;
   const id = youTubeId(url ?? undefined);
   const list = youTubePlaylistId(url ?? undefined);
   if (id) return `https://www.youtube.com/embed/${id}?autoplay=1&rel=0${list ? `&list=${list}` : ''}`;
