@@ -118,9 +118,9 @@ export function VideoModal({ url, onClose }: { url: string | null; onClose: () =
 
 const st = StyleSheet.create({
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', alignItems: 'center', justifyContent: 'center', padding: space.md },
-  box: { width: '100%', maxWidth: 640, backgroundColor: colors.card, borderRadius: radius.md, borderWidth: 1, borderColor: colors.line, overflow: 'hidden' },
+  box: { width: '94%', maxWidth: 460, height: '88%', maxHeight: 820, backgroundColor: colors.card, borderRadius: radius.md, borderWidth: 1, borderColor: colors.line, overflow: 'hidden' },
   bar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: space.md, paddingVertical: space.sm },
-  player: { width: '100%', aspectRatio: 16 / 9, backgroundColor: '#000' },
+  player: { flex: 1, width: '100%', backgroundColor: '#000' },
   thumb: { borderRadius: 10, overflow: 'hidden', backgroundColor: colors.bg2, borderWidth: 1, borderColor: colors.line, alignItems: 'center', justifyContent: 'center' },
   playDot: { width: 26, height: 26, borderRadius: 13, backgroundColor: 'rgba(0,0,0,0.55)', alignItems: 'center', justifyContent: 'center' },
 });
