@@ -72,6 +72,7 @@ function buildNutrition(input: PlanInput): { plan: NutritionPlan; tdee: number; 
       fat,
       meals,
       updatedAt: Date.now(),
+      status: 'draft',
     },
   };
 }
@@ -125,6 +126,7 @@ function buildWorkout(input: PlanInput): WorkoutPlan {
     name: `Plan ${GOAL_NAME[input.goalType]} · ${days} días`,
     days: workoutDays,
     updatedAt: Date.now(),
+    status: 'draft',
   };
 }
 

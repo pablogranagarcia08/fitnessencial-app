@@ -49,6 +49,7 @@ interface State {
   // perfil + automatización de planes
   setProfile: (userId: string, patch: Partial<ClientProfile>) => void;
   generatePlanFor: (clientId: string) => Promise<{ summary: string }>;
+  publishPlan: (clientId: string) => void; // enviar borrador al cliente (lo activa)
 }
 
 const set2 = <T,>(arr: T[], pred: (x: T) => boolean, fn: (x: T) => T): T[] =>
@@ -325,6 +326,35 @@ export const useStore = create<State>()(
 
         return { summary: result.summary };
       },
+
+      // El entrenador envía el borrador al cliente: lo marca activo y le avisa por chat.
+      publishPlan: (clientId) =>
+        set((s) => {
+          const client = s.db.users.find((u) => u.id === clientId);
+          const nombre = client?.name.split(' ')[0] ?? '';
+          const extraMsg =
+            client?.trainerId
+              ? [{
+                  id: uid(),
+                  fromId: client.trainerId,
+                  toId: clientId,
+                  text: `¡${nombre}, tu plan ya está listo! Lo tienes en Entreno y Nutrición. Cualquier duda, aquí estoy. 💪 — Kike`,
+                  createdAt: Date.now(),
+                }]
+              : [];
+          return {
+            db: {
+              ...s.db,
+              workoutPlans: s.db.workoutPlans.map((p) =>
+                p.clientId === clientId ? { ...p, status: 'active' as const } : p
+              ),
+              nutritionPlans: s.db.nutritionPlans.map((p) =>
+                p.clientId === clientId ? { ...p, status: 'active' as const } : p
+              ),
+              messages: [...s.db.messages, ...extraMsg],
+            },
+          };
+        }),
     }),
     {
       name: 'fitnessencial-db-v1',
@@ -378,4 +408,24 @@ export const useProgressOf = (clientId?: string) =>
     useShallow((s) =>
       s.db.progress.filter((p) => p.clientId === clientId).sort((a, b) => a.date - b.date)
     )
+  );
+
+// ¿El cliente tiene un plan en borrador pendiente de que el entrenador lo envíe?
+export const useHasDraft = (clientId?: string) =>
+  useStore(
+    (s) =>
+      s.db.workoutPlans.some((p) => p.clientId === clientId && p.status === 'draft') ||
+      s.db.nutritionPlans.some((p) => p.clientId === clientId && p.status === 'draft')
+  );
+
+// Clientes del entrenador con un plan pendiente de revisar (bandeja tipo CRM).
+export const usePendingClients = (trainerId: string) =>
+  useStore(
+    useShallow((s) => {
+      const draftClientIds = new Set([
+        ...s.db.workoutPlans.filter((p) => p.status === 'draft').map((p) => p.clientId),
+        ...s.db.nutritionPlans.filter((p) => p.status === 'draft').map((p) => p.clientId),
+      ]);
+      return s.db.users.filter((u) => u.role === 'client' && u.trainerId === trainerId && draftClientIds.has(u.id));
+    })
   );

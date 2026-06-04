@@ -54,12 +54,17 @@ export interface WorkoutDay {
   exercises: Exercise[];
 }
 
+// 'draft' = borrador pendiente de que el entrenador lo revise y envíe.
+// 'active' (o sin estado) = ya enviado al cliente, visible para él.
+export type PlanStatus = 'draft' | 'active';
+
 export interface WorkoutPlan {
   id: string;
   clientId: string;
   name: string;
   days: WorkoutDay[];
   updatedAt: number;
+  status?: PlanStatus;
 }
 
 export interface MealItem {
@@ -84,6 +89,7 @@ export interface NutritionPlan {
   fat: number; // g
   meals: Meal[];
   updatedAt: number;
+  status?: PlanStatus;
 }
 
 export interface Message {

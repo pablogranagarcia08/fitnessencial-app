@@ -1,10 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Redirect, Tabs } from 'expo-router';
-import { useSession } from '@/lib/db/store';
+import { usePendingClients, useSession } from '@/lib/db/store';
 import { colors, font } from '@/lib/theme';
 
 export default function TrainerLayout() {
   const user = useSession();
+  const pending = usePendingClients(user?.id ?? '');
   if (!user) return <Redirect href="/login" />;
   if (user.role !== 'trainer') return <Redirect href="/(client)/hoy" />;
 
@@ -22,6 +23,15 @@ export default function TrainerLayout() {
       <Tabs.Screen
         name="clientes"
         options={{ title: 'Clientes', tabBarIcon: ({ color, size }) => <Ionicons name="people" size={size} color={color} /> }}
+      />
+      <Tabs.Screen
+        name="revisar"
+        options={{
+          title: 'Revisar',
+          tabBarIcon: ({ color, size }) => <Ionicons name="clipboard" size={size} color={color} />,
+          tabBarBadge: pending.length > 0 ? pending.length : undefined,
+          tabBarBadgeStyle: { backgroundColor: colors.accent, color: colors.bg, fontSize: 11 },
+        }}
       />
       <Tabs.Screen
         name="mensajes"

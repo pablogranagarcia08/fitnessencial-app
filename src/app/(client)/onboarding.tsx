@@ -67,17 +67,17 @@ export default function Onboarding() {
       photos.slice(1).forEach((uri) => addProgress({ clientId: me.id, date: Date.now(), weightKg: w, photoUri: uri }));
 
       await generatePlanFor(me.id);
-      // Kike "te escribe" al terminar — refuerza que el plan es suyo, no de una máquina.
+      // El plan queda en borrador para que Kike lo revise. Le avisa por el chat.
       if (me.trainerId) {
         const nombre = me.name.split(' ')[0];
         sendMessage(
           me.trainerId,
           me.id,
-          `¡Listo, ${nombre}! Te he preparado tu plan de entreno y nutrición a tu medida. Échale un ojo y cualquier duda me escribes por aquí. 💪 — Kike`
+          `¡Gracias, ${nombre}! He recibido tus datos. Te preparo tu plan de entreno y nutrición a medida y te aviso por aquí en cuanto lo tenga listo. 💪 — Kike`
         );
       }
-      // Pequeña espera para que se sienta trabajado (no instantáneo/automático).
-      setTimeout(() => router.replace('/(client)/entreno'), 1300);
+      // Pequeña espera para que se sienta trabajado, y vuelve al inicio (plan pendiente).
+      setTimeout(() => router.replace('/(client)/hoy'), 1300);
     } catch (e: any) {
       Alert.alert('No se pudo crear el plan', e?.message ?? 'Inténtalo de nuevo.');
       setLoading(false);

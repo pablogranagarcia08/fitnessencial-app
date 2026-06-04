@@ -75,13 +75,13 @@ export default function Hoy() {
       <Tile
         icon="barbell"
         title="Entreno de hoy"
-        sub={today ? `${today.name} · ${doneCount}/${total} completado` : 'Sin rutina'}
+        sub={plan?.status === 'draft' ? 'Kike lo está preparando…' : today ? `${today.name} · ${doneCount}/${total} completado` : 'Sin rutina'}
         onPress={() => router.push('/(client)/entreno')}
       />
       <Tile
         icon="nutrition"
         title="Nutrición"
-        sub={nutrition ? `${nutrition.dailyKcal} kcal · ${nutrition.protein}g proteína` : 'Sin plan'}
+        sub={nutrition?.status === 'draft' ? 'Kike la está preparando…' : nutrition ? `${nutrition.dailyKcal} kcal · ${nutrition.protein}g proteína` : 'Sin plan'}
         onPress={() => router.push('/(client)/nutricion')}
       />
       <Tile
