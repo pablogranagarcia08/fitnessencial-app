@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import * as WebBrowser from 'expo-web-browser';
 import { Modal, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { IconButton, Txt } from '@/components/ui';
@@ -39,6 +40,30 @@ export function driveId(url?: string): string | null {
 // ¿El enlace es reproducible (YouTube vídeo/playlist o Google Drive)?
 export function hasVideo(url?: string): boolean {
   return !!(youTubeId(url) || youTubePlaylistId(url) || driveId(url));
+}
+
+// Miniatura del vídeo (YouTube o Drive). Las playlists no tienen miniatura única.
+export function videoThumb(url?: string): string | null {
+  const d = driveId(url);
+  if (d) return `https://drive.google.com/thumbnail?id=${d}&sz=w320`;
+  const y = youTubeId(url);
+  if (y) return `https://img.youtube.com/vi/${y}/mqdefault.jpg`;
+  return null;
+}
+
+// Miniatura clicable que se coloca al lado de cada ejercicio.
+export function VideoThumb({ url, onPress, width = 78, height = 50 }: { url?: string; onPress: () => void; width?: number; height?: number }) {
+  const thumb = videoThumb(url);
+  return (
+    <Pressable onPress={onPress} hitSlop={6} style={({ pressed }) => [{ opacity: pressed ? 0.8 : 1 }]}>
+      <View style={[st.thumb, { width, height }]}>
+        {thumb ? <Image source={{ uri: thumb }} style={StyleSheet.absoluteFill} contentFit="cover" /> : null}
+        <View style={st.playDot}>
+          <Ionicons name="play" size={14} color="#fff" />
+        </View>
+      </View>
+    </Pressable>
+  );
 }
 
 function embedSrc(url: string | null): string | null {
@@ -96,4 +121,6 @@ const st = StyleSheet.create({
   box: { width: '100%', maxWidth: 640, backgroundColor: colors.card, borderRadius: radius.md, borderWidth: 1, borderColor: colors.line, overflow: 'hidden' },
   bar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: space.md, paddingVertical: space.sm },
   player: { width: '100%', aspectRatio: 16 / 9, backgroundColor: '#000' },
+  thumb: { borderRadius: 10, overflow: 'hidden', backgroundColor: colors.bg2, borderWidth: 1, borderColor: colors.line, alignItems: 'center', justifyContent: 'center' },
+  playDot: { width: 26, height: 26, borderRadius: 13, backgroundColor: 'rgba(0,0,0,0.55)', alignItems: 'center', justifyContent: 'center' },
 });

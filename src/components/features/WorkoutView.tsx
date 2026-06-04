@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { Button, Card, EmptyState, IconButton, Row, SectionTitle, Txt } from '@/components/ui';
-import { hasVideo, openVideoNative, VideoModal } from '@/components/VideoPlayer';
+import { hasVideo, openVideoNative, VideoModal, VideoThumb } from '@/components/VideoPlayer';
 import { useStore, useWorkoutPlan } from '@/lib/db/store';
 import type { Exercise } from '@/lib/db/types';
 import { colors, font, radius, space } from '@/lib/theme';
@@ -91,7 +91,7 @@ export function WorkoutView({ clientId, mode }: { clientId: string; mode: 'clien
                       autoCapitalize="none"
                     />
                     {hasVideo(ex.videoUrl) && (
-                      <IconButton icon="play-circle" color={colors.accent} size={22} onPress={() => playVideo(ex.videoUrl!)} />
+                      <VideoThumb url={ex.videoUrl} onPress={() => playVideo(ex.videoUrl!)} width={58} height={38} />
                     )}
                   </Row>
                   <LoggedSummary ex={ex} />
@@ -123,23 +123,19 @@ function ClientExercise({ ex, onLog, onPlay }: { ex: Exercise; onLog: (index: nu
   const exHasVideo = hasVideo(ex.videoUrl);
   return (
     <View style={st.clientEx}>
-      <Row style={{ justifyContent: 'space-between' }}>
+      <Row style={{ justifyContent: 'space-between', gap: 8 }}>
         <Row style={{ flex: 1, gap: 8 }}>
           <Ionicons name={allDone ? 'checkmark-circle' : 'ellipse-outline'} size={22} color={allDone ? colors.success : colors.mute} />
-          <Txt variant="subtitle" style={[{ fontSize: 16, flexShrink: 1 }, allDone && st.strike]}>{ex.name}</Txt>
+          <View style={{ flex: 1 }}>
+            <Txt variant="subtitle" style={[{ fontSize: 16 }, allDone && st.strike]}>{ex.name}</Txt>
+            <Txt variant="mute" style={{ fontSize: 12 }}>
+              {ex.sets}×{ex.reps}{ex.weightKg ? ` · ${ex.weightKg}kg` : ''}
+            </Txt>
+          </View>
         </Row>
-        <Txt variant="mute" style={{ fontSize: 12 }}>
-          objetivo: {ex.sets}×{ex.reps}{ex.weightKg ? ` · ${ex.weightKg}kg` : ''}
-        </Txt>
+        {exHasVideo && <VideoThumb url={ex.videoUrl} onPress={() => onPlay(ex.videoUrl!)} />}
       </Row>
       {ex.note ? <Txt variant="mute" style={{ fontStyle: 'italic', marginLeft: 30 }}>{ex.note}</Txt> : null}
-
-      {exHasVideo && (
-        <Pressable onPress={() => onPlay(ex.videoUrl!)} style={({ pressed }) => [st.videoBtn, pressed && { opacity: 0.7 }]}>
-          <Ionicons name="play-circle" size={20} color={colors.accent} />
-          <Txt style={{ color: colors.accent, fontWeight: font.semibold, fontSize: 13 }}>Ver explicación de Kike</Txt>
-        </Pressable>
-      )}
 
       <View style={{ gap: 6, marginTop: 4 }}>
         <Row style={{ paddingHorizontal: 4 }}>
