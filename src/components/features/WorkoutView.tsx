@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { Platform, Pressable, StyleSheet, TextInput, useWindowDimensions, View } from 'react-native';
 import { Button, Card, EmptyState, IconButton, Row, SectionTitle, Txt } from '@/components/ui';
-import { hasVideo, InlineVideo, openVideoNative, VideoModal, VideoThumb } from '@/components/VideoPlayer';
+import { hasVideo, openVideoNative, VideoModal, VideoThumb } from '@/components/VideoPlayer';
 import { useStore, useWorkoutPlan } from '@/lib/db/store';
 import type { Exercise } from '@/lib/db/types';
 import { colors, font, radius, space } from '@/lib/theme';
@@ -122,8 +122,7 @@ function ClientExercise({ ex, onLog, onPlay }: { ex: Exercise; onLog: (index: nu
   const allDone = exDone(ex);
   const exHasVideo = hasVideo(ex.videoUrl);
   const { width } = useWindowDimensions();
-  const wide = width >= 640 && exHasVideo; // en ancho, vídeo a la derecha de la tabla
-  const [showVideo, setShowVideo] = useState(false);
+  const wide = width >= 640 && exHasVideo; // en ancho, miniatura a la derecha de la tabla
 
   const setsTable = (
     <View style={{ gap: 6, marginTop: 4, flex: 1 }}>
@@ -184,19 +183,13 @@ function ClientExercise({ ex, onLog, onPlay }: { ex: Exercise; onLog: (index: nu
       {wide ? (
         <Row style={{ gap: space.md, alignItems: 'flex-start', marginTop: 4 }}>
           {setsTable}
-          <View style={{ width: 240 }}>
-            {showVideo ? (
-              <InlineVideo url={ex.videoUrl} height={360} />
-            ) : (
-              <Pressable onPress={() => setShowVideo(true)} style={({ pressed }) => [st.bigThumb, pressed && { opacity: 0.85 }]}>
-                <VideoThumb url={ex.videoUrl} onPress={() => setShowVideo(true)} width={240} height={150} />
-                <Row style={{ gap: 6, justifyContent: 'center', marginTop: 6 }}>
-                  <Ionicons name="play-circle" size={18} color={colors.accent} />
-                  <Txt style={{ color: colors.accent, fontWeight: font.semibold, fontSize: 13 }}>Ver vídeo de Kike</Txt>
-                </Row>
-              </Pressable>
-            )}
-          </View>
+          <Pressable onPress={() => onPlay(ex.videoUrl!)} style={({ pressed }) => [st.bigThumb, pressed && { opacity: 0.85 }]}>
+            <VideoThumb url={ex.videoUrl} onPress={() => onPlay(ex.videoUrl!)} width={240} height={150} />
+            <Row style={{ gap: 6, justifyContent: 'center', marginTop: 6 }}>
+              <Ionicons name="expand" size={16} color={colors.accent} />
+              <Txt style={{ color: colors.accent, fontWeight: font.semibold, fontSize: 13 }}>Ver a pantalla completa</Txt>
+            </Row>
+          </Pressable>
         </Row>
       ) : (
         setsTable
