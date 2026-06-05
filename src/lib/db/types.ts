@@ -88,6 +88,27 @@ export interface Meal {
   items: MealItem[];
 }
 
+// Día de la semana al que se asocia una dieta concreta.
+export type Weekday = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
+
+// Orden y etiquetas de los días (para selectores de UI y generación).
+export const WEEKDAYS: { key: Weekday; label: string; short: string }[] = [
+  { key: 'mon', label: 'Lunes', short: 'L' },
+  { key: 'tue', label: 'Martes', short: 'M' },
+  { key: 'wed', label: 'Miércoles', short: 'X' },
+  { key: 'thu', label: 'Jueves', short: 'J' },
+  { key: 'fri', label: 'Viernes', short: 'V' },
+  { key: 'sat', label: 'Sábado', short: 'S' },
+  { key: 'sun', label: 'Domingo', short: 'D' },
+];
+
+// Dieta específica de un día de la semana (sus comidas).
+export interface NutritionDay {
+  id: string;
+  weekday: Weekday;
+  meals: Meal[];
+}
+
 export interface NutritionPlan {
   id: string;
   clientId: string;
@@ -95,7 +116,7 @@ export interface NutritionPlan {
   protein: number; // g
   carbs: number; // g
   fat: number; // g
-  meals: Meal[];
+  days: NutritionDay[]; // dieta específica por cada día de la semana
   updatedAt: number;
   status?: PlanStatus;
 }

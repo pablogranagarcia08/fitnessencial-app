@@ -1,12 +1,17 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { Button, Card, EmptyState, IconButton, Row, SectionTitle, Txt } from '@/components/ui';
 import { useNutritionPlan, useStore } from '@/lib/db/store';
+import { WEEKDAYS, type Weekday } from '@/lib/db/types';
 import { colors, font, radius, space } from '@/lib/theme';
+
+// Día de la semana de hoy (getDay: 0=domingo) en nuestras claves.
+const todayWeekday = (): Weekday => (['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as Weekday[])[new Date().getDay()];
 
 export function NutritionView({ clientId, mode }: { clientId: string; mode: 'client' | 'trainer' }) {
   const plan = useNutritionPlan(clientId);
-  const { updateNutrition, addMeal, removeMeal, addMealItem, removeMealItem, createNutritionPlan } = useStore();
+  const { updateNutrition, addMeal, removeMeal, addMealItem, removeMealItem, copyDayToAll, createNutritionPlan } = useStore();
+  const [selected, setSelected] = useState<Weekday>(todayWeekday());
 
   if (!plan) {
     return (
@@ -20,6 +25,8 @@ export function NutritionView({ clientId, mode }: { clientId: string; mode: 'cli
   }
 
   const editable = mode === 'trainer';
+  const day = plan.days.find((d) => d.weekday === selected) ?? plan.days[0];
+  const dayLabel = WEEKDAYS.find((w) => w.key === selected)?.label ?? '';
 
   return (
     <View style={{ gap: space.md }}>
@@ -33,16 +40,33 @@ export function NutritionView({ clientId, mode }: { clientId: string; mode: 'cli
         </Row>
       </Card>
 
-      <SectionTitle>Comidas</SectionTitle>
+      {/* Selector de día de la semana */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+        {WEEKDAYS.map((w) => {
+          const active = w.key === selected;
+          return (
+            <Pressable key={w.key} onPress={() => setSelected(w.key)} style={[st.dayTab, active && st.dayTabActive]}>
+              <Txt style={{ color: active ? colors.bg : colors.ink, fontWeight: font.bold, fontSize: 13 }}>{w.short}</Txt>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
 
-      {plan.meals.map((meal) => (
+      <Row style={{ justifyContent: 'space-between' }}>
+        <SectionTitle>{dayLabel}</SectionTitle>
+        {editable && day && (
+          <IconButton icon="copy-outline" color={colors.accent} size={18} onPress={() => copyDayToAll(plan.id, day.id)} />
+        )}
+      </Row>
+
+      {day?.meals.map((meal) => (
         <Card key={meal.id}>
           <Row style={{ justifyContent: 'space-between' }}>
             <Row>
               <Txt variant="subtitle">{meal.name}</Txt>
               <Txt variant="mute">{meal.time}</Txt>
             </Row>
-            {editable && <IconButton icon="trash-outline" color={colors.danger} size={18} onPress={() => removeMeal(plan.id, meal.id)} />}
+            {editable && <IconButton icon="trash-outline" color={colors.danger} size={18} onPress={() => removeMeal(plan.id, day.id, meal.id)} />}
           </Row>
 
           {meal.items.map((it) => (
@@ -53,18 +77,22 @@ export function NutritionView({ clientId, mode }: { clientId: string; mode: 'cli
               </Row>
               <Row>
                 {it.grams ? <Txt variant="mute">{it.grams} g</Txt> : null}
-                {editable && <IconButton icon="close" color={colors.mute} size={16} onPress={() => removeMealItem(plan.id, meal.id, it.id)} />}
+                {editable && <IconButton icon="close" color={colors.mute} size={16} onPress={() => removeMealItem(plan.id, day.id, meal.id, it.id)} />}
               </Row>
             </Row>
           ))}
 
           {meal.items.length === 0 && <Txt variant="mute">Sin alimentos.</Txt>}
 
-          {editable && <AddItem onAdd={(name, grams) => addMealItem(plan.id, meal.id, name, grams)} />}
+          {editable && <AddItem onAdd={(name, grams) => addMealItem(plan.id, day.id, meal.id, name, grams)} />}
         </Card>
       ))}
 
-      {editable && <Button title="Añadir comida" variant="ghost" icon="add" onPress={() => addMeal(plan.id)} />}
+      {day && day.meals.length === 0 && (
+        <EmptyState icon="restaurant-outline" text={`Sin comidas para ${dayLabel.toLowerCase()}.`} />
+      )}
+
+      {editable && day && <Button title="Añadir comida" variant="ghost" icon="add" onPress={() => addMeal(plan.id, day.id)} />}
     </View>
   );
 }
@@ -111,6 +139,20 @@ function AddItem({ onAdd }: { onAdd: (name: string, grams?: number) => void }) {
 
 const st = StyleSheet.create({
   dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.accent },
+  dayTab: {
+    minWidth: 40,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.bg2,
+    alignItems: 'center',
+  },
+  dayTabActive: {
+    backgroundColor: colors.accent,
+    borderColor: colors.accent,
+  },
   macroInput: {
     backgroundColor: colors.bg2,
     borderRadius: radius.sm,

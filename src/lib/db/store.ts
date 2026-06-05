@@ -5,7 +5,8 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 import { useShallow } from 'zustand/react/shallow';
 import { planEngine, type PlanInput } from '../plan/engine';
 import { makeSeed } from './seed';
-import type { ClientProfile, ClientStatus, DB, Exercise, Meal, NutritionPlan, ProgressEntry, SetLog, User, WorkoutDay, WorkoutPlan } from './types';
+import type { ClientProfile, ClientStatus, DB, Exercise, Meal, NutritionDay, NutritionPlan, ProgressEntry, SetLog, User, WorkoutDay, WorkoutPlan } from './types';
+import { WEEKDAYS } from './types';
 
 // Adherencia: % de series marcadas como hechas sobre las prescritas en el plan.
 export function planAdherence(plan?: WorkoutPlan | null): { pct: number; done: number; total: number } | null {
@@ -46,12 +47,13 @@ interface State {
   addWorkoutDay: (planId: string) => void;
   resetDayProgress: (planId: string, dayId: string) => void;
 
-  // nutrición
+  // nutrición (dieta por día de la semana)
   updateNutrition: (planId: string, patch: Partial<NutritionPlan>) => void;
-  addMeal: (planId: string) => void;
-  removeMeal: (planId: string, mealId: string) => void;
-  addMealItem: (planId: string, mealId: string, name: string, grams?: number) => void;
-  removeMealItem: (planId: string, mealId: string, itemId: string) => void;
+  addMeal: (planId: string, dayId: string) => void;
+  removeMeal: (planId: string, dayId: string, mealId: string) => void;
+  addMealItem: (planId: string, dayId: string, mealId: string, name: string, grams?: number) => void;
+  removeMealItem: (planId: string, dayId: string, mealId: string, itemId: string) => void;
+  copyDayToAll: (planId: string, dayId: string) => void; // copia la dieta de un día al resto
 
   // chat
   sendMessage: (fromId: string, toId: string, text: string) => void;
@@ -75,6 +77,10 @@ interface State {
 
 const set2 = <T,>(arr: T[], pred: (x: T) => boolean, fn: (x: T) => T): T[] =>
   arr.map((x) => (pred(x) ? fn(x) : x));
+
+// 7 días vacíos (lunes→domingo) para un plan de nutrición nuevo.
+const emptyNutritionDays = (): NutritionDay[] =>
+  WEEKDAYS.map((wd) => ({ id: uid(), weekday: wd.key, meals: [] }));
 
 export const useStore = create<State>()(
   persist(
@@ -209,57 +215,93 @@ export const useStore = create<State>()(
           },
         })),
 
-      addMeal: (planId) =>
+      addMeal: (planId, dayId) =>
         set((s) => ({
           db: {
             ...s.db,
             nutritionPlans: set2(s.db.nutritionPlans, (p) => p.id === planId, (p) => ({
               ...p,
               updatedAt: Date.now(),
-              meals: [...p.meals, { id: uid(), name: 'Nueva comida', time: '12:00', items: [] } as Meal],
-            })),
-          },
-        })),
-
-      removeMeal: (planId, mealId) =>
-        set((s) => ({
-          db: {
-            ...s.db,
-            nutritionPlans: set2(s.db.nutritionPlans, (p) => p.id === planId, (p) => ({
-              ...p,
-              updatedAt: Date.now(),
-              meals: p.meals.filter((m) => m.id !== mealId),
-            })),
-          },
-        })),
-
-      addMealItem: (planId, mealId, name, grams) =>
-        set((s) => ({
-          db: {
-            ...s.db,
-            nutritionPlans: set2(s.db.nutritionPlans, (p) => p.id === planId, (p) => ({
-              ...p,
-              updatedAt: Date.now(),
-              meals: set2(p.meals, (m) => m.id === mealId, (m) => ({
-                ...m,
-                items: [...m.items, { id: uid(), name, grams }],
+              days: set2(p.days, (d) => d.id === dayId, (d) => ({
+                ...d,
+                meals: [...d.meals, { id: uid(), name: 'Nueva comida', time: '12:00', items: [] } as Meal],
               })),
             })),
           },
         })),
 
-      removeMealItem: (planId, mealId, itemId) =>
+      removeMeal: (planId, dayId, mealId) =>
         set((s) => ({
           db: {
             ...s.db,
             nutritionPlans: set2(s.db.nutritionPlans, (p) => p.id === planId, (p) => ({
               ...p,
               updatedAt: Date.now(),
-              meals: set2(p.meals, (m) => m.id === mealId, (m) => ({
-                ...m,
-                items: m.items.filter((it) => it.id !== itemId),
+              days: set2(p.days, (d) => d.id === dayId, (d) => ({
+                ...d,
+                meals: d.meals.filter((m) => m.id !== mealId),
               })),
             })),
+          },
+        })),
+
+      addMealItem: (planId, dayId, mealId, name, grams) =>
+        set((s) => ({
+          db: {
+            ...s.db,
+            nutritionPlans: set2(s.db.nutritionPlans, (p) => p.id === planId, (p) => ({
+              ...p,
+              updatedAt: Date.now(),
+              days: set2(p.days, (d) => d.id === dayId, (d) => ({
+                ...d,
+                meals: set2(d.meals, (m) => m.id === mealId, (m) => ({
+                  ...m,
+                  items: [...m.items, { id: uid(), name, grams }],
+                })),
+              })),
+            })),
+          },
+        })),
+
+      removeMealItem: (planId, dayId, mealId, itemId) =>
+        set((s) => ({
+          db: {
+            ...s.db,
+            nutritionPlans: set2(s.db.nutritionPlans, (p) => p.id === planId, (p) => ({
+              ...p,
+              updatedAt: Date.now(),
+              days: set2(p.days, (d) => d.id === dayId, (d) => ({
+                ...d,
+                meals: set2(d.meals, (m) => m.id === mealId, (m) => ({
+                  ...m,
+                  items: m.items.filter((it) => it.id !== itemId),
+                })),
+              })),
+            })),
+          },
+        })),
+
+      // Copia las comidas del día indicado al resto de días de la semana
+      // (clonando ids para que cada día sea editable de forma independiente).
+      copyDayToAll: (planId, dayId) =>
+        set((s) => ({
+          db: {
+            ...s.db,
+            nutritionPlans: set2(s.db.nutritionPlans, (p) => p.id === planId, (p) => {
+              const source = p.days.find((d) => d.id === dayId);
+              if (!source) return p;
+              const clone = (): Meal[] =>
+                source.meals.map((m) => ({
+                  ...m,
+                  id: uid(),
+                  items: m.items.map((it) => ({ ...it, id: uid() })),
+                }));
+              return {
+                ...p,
+                updatedAt: Date.now(),
+                days: p.days.map((d) => (d.id === dayId ? d : { ...d, meals: clone() })),
+              };
+            }),
           },
         })),
 
@@ -433,7 +475,7 @@ export const useStore = create<State>()(
                 protein: 150,
                 carbs: 200,
                 fat: 60,
-                meals: [],
+                days: emptyNutritionDays(),
                 status: 'draft',
                 updatedAt: Date.now(),
               },
@@ -473,7 +515,7 @@ export const useStore = create<State>()(
     {
       // Sube la versión cuando cambian los datos semilla (p. ej. vídeos) para que
       // los dispositivos refresquen la demo en vez de quedarse con datos viejos.
-      name: 'fitnessencial-db-v3',
+      name: 'fitnessencial-db-v4',
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (s) => ({ db: s.db, sessionUserId: s.sessionUserId }),
     }

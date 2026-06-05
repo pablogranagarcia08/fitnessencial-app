@@ -1,4 +1,5 @@
 import { videoFor } from '../exerciseVideos';
+import { buildNutritionDays } from '../plan/generate';
 import type { DB } from './types';
 
 const day = 24 * 60 * 60 * 1000;
@@ -111,37 +112,7 @@ export function makeSeed(): DB {
         carbs: 160,
         fat: 55,
         updatedAt: now,
-        meals: [
-          {
-            id: 'm1',
-            name: 'Desayuno',
-            time: '08:00',
-            items: [
-              { id: 'i1', name: 'Avena', grams: 60 },
-              { id: 'i2', name: 'Claras de huevo', grams: 200 },
-              { id: 'i3', name: 'Arándanos', grams: 80 },
-            ],
-          },
-          {
-            id: 'm2',
-            name: 'Comida',
-            time: '14:00',
-            items: [
-              { id: 'i4', name: 'Pechuga de pollo', grams: 150 },
-              { id: 'i5', name: 'Arroz', grams: 70 },
-              { id: 'i6', name: 'Verduras', grams: 200 },
-            ],
-          },
-          {
-            id: 'm3',
-            name: 'Cena',
-            time: '21:00',
-            items: [
-              { id: 'i7', name: 'Salmón', grams: 130 },
-              { id: 'i8', name: 'Boniato', grams: 120 },
-            ],
-          },
-        ],
+        days: buildNutritionDays(66),
       },
       {
         id: 'np-david',
@@ -151,17 +122,7 @@ export function makeSeed(): DB {
         carbs: 330,
         fat: 80,
         updatedAt: now,
-        meals: [
-          {
-            id: 'm4',
-            name: 'Desayuno',
-            time: '08:30',
-            items: [
-              { id: 'i9', name: 'Tortilla 4 huevos', grams: 220 },
-              { id: 'i10', name: 'Pan integral', grams: 80 },
-            ],
-          },
-        ],
+        days: buildNutritionDays(79),
       },
     ],
 
