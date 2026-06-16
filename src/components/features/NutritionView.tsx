@@ -193,7 +193,7 @@ function AddItem({ onAdd }: { onAdd: (name: string, grams?: number) => void }) {
 
 const st = StyleSheet.create({
   dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.accent },
-  photo: { width: '100%', height: 150, backgroundColor: colors.bg2 },
+  photo: { width: '100%', aspectRatio: 16 / 9, backgroundColor: colors.bg2 },
   photoPlaceholder: { alignItems: 'center', justifyContent: 'center' },
   dayTab: {
     flex: 1,

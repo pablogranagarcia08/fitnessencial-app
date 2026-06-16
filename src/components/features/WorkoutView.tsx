@@ -182,16 +182,25 @@ function ClientExercise({ ex, onLog, onPlay }: { ex: Exercise; onLog: (index: nu
             </Txt>
           </View>
         </Row>
-        {/* En móvil estrecho: miniatura que abre el vídeo a pantalla completa */}
-        {exHasVideo && !wide && <VideoThumb url={ex.videoUrl} onPress={() => onPlay(ex.videoUrl!)} />}
       </Row>
       {ex.note ? <Txt variant="mute" style={{ fontStyle: 'italic', marginLeft: 30 }}>{ex.note}</Txt> : null}
+
+      {/* En móvil: previsualización del vídeo a todo el ancho (16:9, frame entero) */}
+      {exHasVideo && !wide && (
+        <Pressable onPress={() => onPlay(ex.videoUrl!)} style={({ pressed }) => [{ marginTop: 6 }, pressed && { opacity: 0.85 }]}>
+          <VideoThumb url={ex.videoUrl} full onPress={() => onPlay(ex.videoUrl!)} />
+          <Row style={{ gap: 6, marginTop: 6 }}>
+            <Ionicons name="play-circle" size={18} color={colors.accent} />
+            <Txt style={{ color: colors.accent, fontWeight: font.semibold, fontSize: 13 }}>Ver vídeo de Kike</Txt>
+          </Row>
+        </Pressable>
+      )}
 
       {wide ? (
         <Row style={{ gap: space.md, alignItems: 'flex-start', marginTop: 4 }}>
           {setsTable}
           <Pressable onPress={() => onPlay(ex.videoUrl!)} style={({ pressed }) => [st.bigThumb, pressed && { opacity: 0.85 }]}>
-            <VideoThumb url={ex.videoUrl} onPress={() => onPlay(ex.videoUrl!)} width={240} height={150} />
+            <VideoThumb url={ex.videoUrl} onPress={() => onPlay(ex.videoUrl!)} width={260} height={146} />
             <Row style={{ gap: 6, justifyContent: 'center', marginTop: 6 }}>
               <Ionicons name="play-circle" size={18} color={colors.accent} />
               <Txt style={{ color: colors.accent, fontWeight: font.semibold, fontSize: 13 }}>Ver vídeo de Kike</Txt>

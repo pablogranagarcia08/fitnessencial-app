@@ -63,25 +63,26 @@ export function InlineVideo({ url, height = 420 }: { url?: string; height?: numb
       </View>
     );
   }
-  // Móvil: miniatura a tamaño completo que abre el vídeo.
+  // Móvil: miniatura a tamaño completo que abre el vídeo (frame entero, sin recortar).
   const thumb = videoThumb(url);
   return (
     <Pressable onPress={() => url && openVideoNative(url)} style={[st.inline, { height, alignItems: 'center', justifyContent: 'center' }]}>
-      {thumb ? <Image source={{ uri: thumb }} style={StyleSheet.absoluteFill} contentFit="cover" /> : null}
+      {thumb ? <Image source={{ uri: thumb }} style={StyleSheet.absoluteFill} contentFit="contain" /> : null}
       <View style={st.playDot}><Ionicons name="play" size={16} color="#fff" /></View>
     </Pressable>
   );
 }
 
-// Miniatura clicable que se coloca al lado de cada ejercicio.
-export function VideoThumb({ url, onPress, width = 78, height = 50 }: { url?: string; onPress: () => void; width?: number; height?: number }) {
+// Miniatura clicable. `full` la hace ocupar todo el ancho en 16:9 (para móvil).
+// Usa contentFit="contain" para mostrar el frame del vídeo entero, sin recortes.
+export function VideoThumb({ url, onPress, width = 96, height = 54, full }: { url?: string; onPress: () => void; width?: number; height?: number; full?: boolean }) {
   const thumb = videoThumb(url);
   return (
-    <Pressable onPress={onPress} hitSlop={6} style={({ pressed }) => [{ opacity: pressed ? 0.8 : 1 }]}>
-      <View style={[st.thumb, { width, height }]}>
-        {thumb ? <Image source={{ uri: thumb }} style={StyleSheet.absoluteFill} contentFit="cover" /> : null}
+    <Pressable onPress={onPress} hitSlop={6} style={({ pressed }) => [full && { width: '100%' }, { opacity: pressed ? 0.8 : 1 }]}>
+      <View style={[st.thumb, full ? { width: '100%', aspectRatio: 16 / 9 } : { width, height }]}>
+        {thumb ? <Image source={{ uri: thumb }} style={StyleSheet.absoluteFill} contentFit="contain" /> : null}
         <View style={st.playDot}>
-          <Ionicons name="play" size={14} color="#fff" />
+          <Ionicons name="play" size={full ? 22 : 14} color="#fff" />
         </View>
       </View>
     </Pressable>
