@@ -78,3 +78,15 @@ export const monthLabel = (ts: number): string => {
   const d = new Date(ts);
   return `${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
 };
+
+// "13 junio 2026" — título del modal de día.
+export const fullDateLabel = (ts: number): string => {
+  const d = new Date(ts);
+  return `${d.getDate()} ${MONTHS[d.getMonth()].toLowerCase()} ${d.getFullYear()}`;
+};
+
+// "13 junio" — fecha corta dentro de las tarjetas de tarea.
+export const shortDateLabel = (ts: number): string => {
+  const d = new Date(ts);
+  return `${d.getDate()} ${MONTHS[d.getMonth()].toLowerCase()}`;
+};

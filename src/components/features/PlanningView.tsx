@@ -1,11 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { Card, IconButton, Row, Txt } from '@/components/ui';
 import { usePlanTasks, useStore } from '@/lib/db/store';
 import type { PlanTask, PlanTaskType } from '@/lib/db/types';
 import {
-  addMonths, DAY, dayLabel, monthGrid, monthLabel, startOfDay, startOfMonth,
+  addMonths, DAY, dayLabel, fullDateLabel, monthGrid, monthLabel, shortDateLabel, startOfDay, startOfMonth,
   TASK_META, TASK_ORDER, weekDays, weekRangeLabel, WEEKDAY_LABELS,
 } from '@/lib/planning';
 import { colors, font, radius, space } from '@/lib/theme';
@@ -17,6 +17,7 @@ export function PlanningView({ clientId, mode }: { clientId: string; mode: 'clie
   const { togglePlanTask, addPlanTask, removePlanTask } = useStore();
   const [view, setView] = useState<ViewMode>('month');
   const [anchor, setAnchor] = useState(() => startOfDay(Date.now()));
+  const [modalDay, setModalDay] = useState<number | null>(null);
   const editable = mode === 'trainer';
 
   // Agrupa las tareas por día (clave = inicio del día) y ordena por tipo.
@@ -55,10 +56,8 @@ export function PlanningView({ clientId, mode }: { clientId: string; mode: 'clie
 
   const periodLabel = view === 'month' ? monthLabel(anchor) : view === 'week' ? weekRangeLabel(anchor) : dayLabel(anchor);
 
-  const openDay = (ts: number) => {
-    setAnchor(startOfDay(ts));
-    setView('day');
-  };
+  // Al tocar un día (en Mes o Semana) se abre el modal con sus tareas.
+  const openDay = (ts: number) => setModalDay(startOfDay(ts));
 
   return (
     <View style={{ gap: space.md }}>
@@ -112,7 +111,112 @@ export function PlanningView({ clientId, mode }: { clientId: string; mode: 'clie
           onAdd={(type, title) => addPlanTask({ clientId, date: anchor, type, title })}
         />
       )}
+
+      <DayModal
+        day={modalDay}
+        tasks={modalDay != null ? tasksOf(modalDay) : []}
+        editable={editable}
+        onClose={() => setModalDay(null)}
+        onToggle={togglePlanTask}
+        onRemove={removePlanTask}
+        onAdd={(type, title) => modalDay != null && addPlanTask({ clientId, date: modalDay, type, title })}
+      />
     </View>
+  );
+}
+
+// ---------- Modal de día (al tocar una fecha) ----------
+function DayModal({ day, tasks, editable, onClose, onToggle, onRemove, onAdd }: {
+  day: number | null;
+  tasks: PlanTask[];
+  editable: boolean;
+  onClose: () => void;
+  onToggle: (id: string) => void;
+  onRemove: (id: string) => void;
+  onAdd: (type: PlanTaskType, title: string) => void;
+}) {
+  const [adding, setAdding] = useState(false);
+  const [type, setType] = useState<PlanTaskType>('workout');
+  const [title, setTitle] = useState('');
+  if (day == null) return null;
+
+  const submit = () => {
+    onAdd(type, title.trim() || TASK_META[type].label);
+    setTitle('');
+    setAdding(false);
+  };
+  const close = () => { setAdding(false); setTitle(''); onClose(); };
+
+  return (
+    <Modal visible transparent animationType="fade" onRequestClose={close}>
+      <Pressable style={st.backdrop} onPress={close}>
+        <Pressable style={st.modalCard} onPress={(e) => e.stopPropagation()}>
+          <Row style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <View style={{ flex: 1 }}>
+              <Txt variant="title" style={{ textTransform: 'capitalize', fontSize: 20 }}>{fullDateLabel(day)}</Txt>
+              <Txt variant="mute">Estas son las tareas del día</Txt>
+            </View>
+            <IconButton icon="close" color={colors.mute} onPress={close} />
+          </Row>
+
+          <ScrollView style={{ maxHeight: 380 }} contentContainerStyle={{ gap: space.sm, paddingVertical: space.sm }} showsVerticalScrollIndicator={false}>
+            {tasks.length === 0 && <Txt variant="mute" style={{ paddingVertical: space.md }}>No hay tareas programadas este día.</Txt>}
+            {tasks.map((t) => {
+              const meta = TASK_META[t.type];
+              return (
+                <Card key={t.id} soft style={{ gap: 8 }}>
+                  <Row style={{ justifyContent: 'space-between' }}>
+                    <Pressable onPress={() => onToggle(t.id)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+                      <View style={[st.modalDot, { backgroundColor: meta.color, opacity: t.done ? 0.4 : 1 }]} />
+                      <Txt variant="subtitle" style={{ flex: 1, textDecorationLine: t.done ? 'line-through' : 'none', opacity: t.done ? 0.6 : 1 }} numberOfLines={2}>
+                        {t.title}
+                      </Txt>
+                    </Pressable>
+                    {t.done && <Ionicons name="checkmark-circle" size={20} color={colors.success} />}
+                    {editable && <IconButton icon="trash-outline" color={colors.danger} size={18} onPress={() => onRemove(t.id)} />}
+                  </Row>
+                  <Row style={{ gap: 6 }}>
+                    <Ionicons name="calendar-outline" size={14} color={colors.mute} />
+                    <Txt variant="mute" style={{ fontSize: 13 }}>{shortDateLabel(t.date)}</Txt>
+                    <Ionicons name="time-outline" size={14} color={colors.mute} style={{ marginLeft: 8 }} />
+                    <Txt variant="mute" style={{ fontSize: 13 }}>Todo el día</Txt>
+                  </Row>
+                  <Row style={{ gap: 6 }}>
+                    <Ionicons name={meta.icon} size={14} color={meta.color} />
+                    <Txt style={{ fontSize: 13, color: colors.inkSoft }}>{meta.label}</Txt>
+                  </Row>
+                </Card>
+              );
+            })}
+          </ScrollView>
+
+          {editable && adding && (
+            <View style={{ gap: space.sm }}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
+                {ADD_TYPES.map((ty) => {
+                  const active = ty === type;
+                  return (
+                    <Pressable key={ty} onPress={() => setType(ty)} style={[st.typePill, active && { backgroundColor: TASK_META[ty].color, borderColor: TASK_META[ty].color }]}>
+                      <Txt style={{ fontSize: 12, fontWeight: font.semibold, color: active ? colors.bg : colors.inkSoft }}>{TASK_META[ty].label}</Txt>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+              <Row>
+                <TextInput value={title} onChangeText={setTitle} placeholder={TASK_META[type].label} placeholderTextColor={colors.mute} style={st.addInput} />
+                <Pressable onPress={submit} style={st.saveBtn}><Txt style={{ color: colors.bg, fontWeight: font.bold }}>OK</Txt></Pressable>
+              </Row>
+            </View>
+          )}
+
+          {editable && !adding && (
+            <Pressable onPress={() => setAdding(true)} style={st.addNewBtn}>
+              <Txt style={{ color: colors.bg, fontWeight: font.bold, fontSize: 15 }}>Añadir nuevo</Txt>
+            </Pressable>
+          )}
+        </Pressable>
+      </Pressable>
+    </Modal>
   );
 }
 
@@ -301,6 +405,10 @@ const st = StyleSheet.create({
   tag: { width: 24, height: 24, borderRadius: 7, alignItems: 'center', justifyContent: 'center' },
 
   addTaskBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 12, borderRadius: radius.md, borderWidth: 1, borderColor: colors.line, borderStyle: 'dashed' },
+  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center', padding: space.lg },
+  modalCard: { width: '100%', maxWidth: 460, backgroundColor: colors.card, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.line, padding: space.lg, gap: space.sm },
+  modalDot: { width: 12, height: 12, borderRadius: 6 },
+  addNewBtn: { backgroundColor: colors.accent, borderRadius: radius.pill, paddingVertical: 14, alignItems: 'center', marginTop: space.xs },
   typePill: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.bg2 },
   addInput: { flex: 1, backgroundColor: colors.bg2, borderRadius: radius.sm, borderWidth: 1, borderColor: colors.line, paddingHorizontal: 12, paddingVertical: 10, color: colors.ink, fontSize: 14 },
   saveBtn: { width: 44, height: 40, borderRadius: radius.sm, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' },
