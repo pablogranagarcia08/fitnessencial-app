@@ -1,10 +1,10 @@
-import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { Button, Card, EmptyState, IconButton, Row, SectionTitle, Txt } from '@/components/ui';
 import { useNutritionPlan, useStore } from '@/lib/db/store';
 import { WEEKDAYS, type MealOption, type Weekday } from '@/lib/db/types';
+import { DEFAULT_FOOD_PHOTO } from '@/lib/foodPhotos';
 import { colors, font, radius, space } from '@/lib/theme';
 
 // Día de la semana de hoy (getDay: 0=domingo) en nuestras claves.
@@ -115,13 +115,8 @@ function OptionCard({ option, index, editable, onRemove, onAddItem, onRemoveItem
 }) {
   return (
     <Card style={{ padding: 0, overflow: 'hidden', gap: 0 }}>
-      {option.photoUri ? (
-        <Image source={{ uri: option.photoUri }} style={st.photo} contentFit="cover" transition={200} />
-      ) : (
-        <View style={[st.photo, st.photoPlaceholder]}>
-          <Ionicons name="restaurant-outline" size={28} color={colors.mute} />
-        </View>
-      )}
+      <Image source={{ uri: option.photoUri ?? DEFAULT_FOOD_PHOTO }} style={st.photo} contentFit="cover" transition={200} />
+
       <View style={{ padding: space.md, gap: 8 }}>
         <Row style={{ justifyContent: 'space-between' }}>
           <View style={{ flex: 1 }}>
@@ -194,7 +189,6 @@ function AddItem({ onAdd }: { onAdd: (name: string, grams?: number) => void }) {
 const st = StyleSheet.create({
   dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.accent },
   photo: { width: '100%', aspectRatio: 16 / 9, backgroundColor: colors.bg2 },
-  photoPlaceholder: { alignItems: 'center', justifyContent: 'center' },
   dayTab: {
     flex: 1,
     paddingVertical: 9,

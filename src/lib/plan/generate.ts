@@ -33,50 +33,50 @@ const GOAL_REPS: Record<GoalType, string> = { fatloss: '12-15', muscle: '8-12', 
 // Cada comida ofrece VARIAS OPCIONES (plato con foto + receta) entre las que el
 // cliente elige. Por día de la semana rotan las opciones para dar variedad.
 // Las cantidades exactas las ajusta luego Kike.
-type Dish = { name: string; keywords: string; items: (kg: number) => { name: string; grams?: number }[] };
+type Dish = { name: string; photo: string; items: (kg: number) => { name: string; grams?: number }[] };
 
 const BREAKFAST_DISHES: Dish[] = [
-  { name: 'Avena con claras y arándanos', keywords: 'oatmeal,berries', items: (kg) => [{ name: 'Avena', grams: round(0.7 * kg) }, { name: 'Claras de huevo', grams: 200 }, { name: 'Arándanos', grams: 100 }] },
-  { name: 'Tostadas con huevo y aguacate', keywords: 'avocado,toast,egg', items: (kg) => [{ name: 'Pan integral', grams: round(0.9 * kg) }, { name: 'Huevos', grams: 150 }, { name: 'Aguacate', grams: 60 }] },
-  { name: 'Yogur griego con granola', keywords: 'yogurt,granola,banana', items: (kg) => [{ name: 'Yogur griego', grams: 250 }, { name: 'Granola', grams: round(0.5 * kg) }, { name: 'Plátano', grams: 120 }] },
-  { name: 'Tortitas de avena y requesón', keywords: 'pancakes,oats', items: (kg) => [{ name: 'Tortitas de avena', grams: round(0.8 * kg) }, { name: 'Requesón', grams: 150 }, { name: 'Miel', grams: 15 }] },
-  { name: 'Pan de centeno con pavo', keywords: 'rye,bread,turkey', items: (kg) => [{ name: 'Pan de centeno', grams: round(0.8 * kg) }, { name: 'Pavo', grams: 80 }, { name: 'Tomate', grams: 80 }] },
-  { name: 'Tortilla con pan y fruta', keywords: 'omelette,fruit', items: (kg) => [{ name: 'Tortilla 3 huevos', grams: 180 }, { name: 'Pan integral', grams: round(0.7 * kg) }, { name: 'Fruta', grams: 120 }] },
+  { name: 'Avena con claras y arándanos', photo: 'oatmeal', items: (kg) => [{ name: 'Avena', grams: round(0.7 * kg) }, { name: 'Claras de huevo', grams: 200 }, { name: 'Arándanos', grams: 100 }] },
+  { name: 'Tostadas con huevo y aguacate', photo: 'avocado_toast', items: (kg) => [{ name: 'Pan integral', grams: round(0.9 * kg) }, { name: 'Huevos', grams: 150 }, { name: 'Aguacate', grams: 60 }] },
+  { name: 'Yogur griego con granola', photo: 'yogurt_granola', items: (kg) => [{ name: 'Yogur griego', grams: 250 }, { name: 'Granola', grams: round(0.5 * kg) }, { name: 'Plátano', grams: 120 }] },
+  { name: 'Tortitas de avena y requesón', photo: 'pancakes', items: (kg) => [{ name: 'Tortitas de avena', grams: round(0.8 * kg) }, { name: 'Requesón', grams: 150 }, { name: 'Miel', grams: 15 }] },
+  { name: 'Pan de centeno con pavo', photo: 'rye_turkey', items: (kg) => [{ name: 'Pan de centeno', grams: round(0.8 * kg) }, { name: 'Pavo', grams: 80 }, { name: 'Tomate', grams: 80 }] },
+  { name: 'Tortilla con pan y fruta', photo: 'omelette_fruit', items: (kg) => [{ name: 'Tortilla 3 huevos', grams: 180 }, { name: 'Pan integral', grams: round(0.7 * kg) }, { name: 'Fruta', grams: 120 }] },
 ];
 
 const LUNCH_DISHES: Dish[] = [
-  { name: 'Arroz con pollo', keywords: 'chicken,rice', items: (kg) => [{ name: 'Pechuga de pollo', grams: round(2 * kg) }, { name: 'Arroz blanco', grams: round(1.2 * kg) }, { name: 'Verduras salteadas', grams: 200 }] },
-  { name: 'Ternera con patata', keywords: 'beef,potato', items: (kg) => [{ name: 'Ternera magra', grams: round(1.9 * kg) }, { name: 'Patata cocida', grams: round(1.5 * kg) }, { name: 'Ensalada', grams: 200 }] },
-  { name: 'Salmón con quinoa', keywords: 'salmon,quinoa', items: (kg) => [{ name: 'Salmón', grams: round(1.8 * kg) }, { name: 'Quinoa', grams: round(1.1 * kg) }, { name: 'Brócoli', grams: 200 }] },
-  { name: 'Pavo con pasta integral', keywords: 'pasta,turkey', items: (kg) => [{ name: 'Pavo a la plancha', grams: round(2 * kg) }, { name: 'Pasta integral', grams: round(1.2 * kg) }, { name: 'Tomate y rúcula', grams: 180 }] },
-  { name: 'Merluza con arroz integral', keywords: 'fish,brown,rice', items: (kg) => [{ name: 'Merluza', grams: round(2 * kg) }, { name: 'Arroz integral', grams: round(1.2 * kg) }, { name: 'Pimientos', grams: 200 }] },
-  { name: 'Lentejas estofadas', keywords: 'lentils,stew', items: (kg) => [{ name: 'Lentejas', grams: round(2.2 * kg) }, { name: 'Arroz', grams: round(0.8 * kg) }, { name: 'Verduras', grams: 150 }] },
-  { name: 'Pollo al horno con boniato', keywords: 'roast,chicken,sweet,potato', items: (kg) => [{ name: 'Pollo al horno', grams: round(2 * kg) }, { name: 'Boniato', grams: round(1.4 * kg) }, { name: 'Espárragos', grams: 180 }] },
+  { name: 'Arroz con pollo', photo: 'chicken_rice', items: (kg) => [{ name: 'Pechuga de pollo', grams: round(2 * kg) }, { name: 'Arroz blanco', grams: round(1.2 * kg) }, { name: 'Verduras salteadas', grams: 200 }] },
+  { name: 'Ternera con patata', photo: 'beef_potato', items: (kg) => [{ name: 'Ternera magra', grams: round(1.9 * kg) }, { name: 'Patata cocida', grams: round(1.5 * kg) }, { name: 'Ensalada', grams: 200 }] },
+  { name: 'Salmón con quinoa', photo: 'salmon_quinoa', items: (kg) => [{ name: 'Salmón', grams: round(1.8 * kg) }, { name: 'Quinoa', grams: round(1.1 * kg) }, { name: 'Brócoli', grams: 200 }] },
+  { name: 'Pavo con pasta integral', photo: 'pasta_turkey', items: (kg) => [{ name: 'Pavo a la plancha', grams: round(2 * kg) }, { name: 'Pasta integral', grams: round(1.2 * kg) }, { name: 'Tomate y rúcula', grams: 180 }] },
+  { name: 'Merluza con arroz integral', photo: 'hake_rice', items: (kg) => [{ name: 'Merluza', grams: round(2 * kg) }, { name: 'Arroz integral', grams: round(1.2 * kg) }, { name: 'Pimientos', grams: 200 }] },
+  { name: 'Lentejas estofadas', photo: 'lentils', items: (kg) => [{ name: 'Lentejas', grams: round(2.2 * kg) }, { name: 'Arroz', grams: round(0.8 * kg) }, { name: 'Verduras', grams: 150 }] },
+  { name: 'Pollo al horno con boniato', photo: 'roast_chicken', items: (kg) => [{ name: 'Pollo al horno', grams: round(2 * kg) }, { name: 'Boniato', grams: round(1.4 * kg) }, { name: 'Espárragos', grams: 180 }] },
 ];
 
 const SNACK_DISHES: Dish[] = [
-  { name: 'Yogur proteico con nueces', keywords: 'yogurt,walnuts', items: () => [{ name: 'Yogur proteico', grams: 200 }, { name: 'Nueces', grams: 25 }] },
-  { name: 'Requesón con manzana', keywords: 'cottage,cheese,apple', items: () => [{ name: 'Requesón', grams: 200 }, { name: 'Manzana', grams: 150 }] },
-  { name: 'Batido de proteína y plátano', keywords: 'protein,shake,banana', items: () => [{ name: 'Batido proteína', grams: 30 }, { name: 'Plátano', grams: 120 }] },
-  { name: 'Tostada de pavo', keywords: 'turkey,sandwich', items: () => [{ name: 'Tostada integral', grams: 60 }, { name: 'Pavo', grams: 80 }] },
-  { name: 'Frutos secos y fruta', keywords: 'nuts,fruit', items: () => [{ name: 'Frutos secos', grams: 30 }, { name: 'Fruta', grams: 150 }] },
-  { name: 'Queso fresco con frutos rojos', keywords: 'cheese,berries', items: () => [{ name: 'Queso fresco batido', grams: 200 }, { name: 'Frutos rojos', grams: 100 }] },
+  { name: 'Yogur proteico con nueces', photo: 'yogurt_nuts', items: () => [{ name: 'Yogur proteico', grams: 200 }, { name: 'Nueces', grams: 25 }] },
+  { name: 'Requesón con manzana', photo: 'cottage_apple', items: () => [{ name: 'Requesón', grams: 200 }, { name: 'Manzana', grams: 150 }] },
+  { name: 'Batido de proteína y plátano', photo: 'protein_shake', items: () => [{ name: 'Batido proteína', grams: 30 }, { name: 'Plátano', grams: 120 }] },
+  { name: 'Tostada de pavo', photo: 'turkey_toast', items: () => [{ name: 'Tostada integral', grams: 60 }, { name: 'Pavo', grams: 80 }] },
+  { name: 'Frutos secos y fruta', photo: 'nuts_fruit', items: () => [{ name: 'Frutos secos', grams: 30 }, { name: 'Fruta', grams: 150 }] },
+  { name: 'Queso fresco con frutos rojos', photo: 'cheese_berries', items: () => [{ name: 'Queso fresco batido', grams: 200 }, { name: 'Frutos rojos', grams: 100 }] },
 ];
 
 const DINNER_DISHES: Dish[] = [
-  { name: 'Salmón con boniato', keywords: 'salmon,spinach', items: (kg) => [{ name: 'Salmón', grams: round(1.7 * kg) }, { name: 'Boniato', grams: 120 }, { name: 'Espinacas', grams: 150 }] },
-  { name: 'Tortilla de claras y verduras', keywords: 'egg,white,omelette,vegetables', items: (kg) => [{ name: 'Tortilla de claras', grams: 220 }, { name: 'Verduras al horno', grams: round(2 * kg) }] },
-  { name: 'Pollo con ensalada', keywords: 'grilled,chicken,salad', items: (kg) => [{ name: 'Pollo', grams: round(1.7 * kg) }, { name: 'Ensalada completa', grams: 200 }] },
-  { name: 'Merluza al vapor con calabacín', keywords: 'steamed,fish,zucchini', items: (kg) => [{ name: 'Merluza al vapor', grams: round(1.8 * kg) }, { name: 'Calabacín', grams: 200 }] },
-  { name: 'Atún con ensalada mixta', keywords: 'tuna,salad', items: (kg) => [{ name: 'Atún', grams: round(1.5 * kg) }, { name: 'Ensalada mixta', grams: 200 }, { name: 'Aceite de oliva', grams: 10 }] },
-  { name: 'Hamburguesa de pavo', keywords: 'turkey,burger', items: (kg) => [{ name: 'Hamburguesa de pavo', grams: round(1.7 * kg) }, { name: 'Pan integral', grams: 60 }, { name: 'Verduras', grams: 120 }] },
+  { name: 'Salmón con boniato', photo: 'salmon_sweetpotato', items: (kg) => [{ name: 'Salmón', grams: round(1.7 * kg) }, { name: 'Boniato', grams: 120 }, { name: 'Espinacas', grams: 150 }] },
+  { name: 'Tortilla de claras y verduras', photo: 'eggwhite_veg', items: (kg) => [{ name: 'Tortilla de claras', grams: 220 }, { name: 'Verduras al horno', grams: round(2 * kg) }] },
+  { name: 'Pollo con ensalada', photo: 'chicken_salad', items: (kg) => [{ name: 'Pollo', grams: round(1.7 * kg) }, { name: 'Ensalada completa', grams: 200 }] },
+  { name: 'Merluza al vapor con calabacín', photo: 'steamed_hake', items: (kg) => [{ name: 'Merluza al vapor', grams: round(1.8 * kg) }, { name: 'Calabacín', grams: 200 }] },
+  { name: 'Atún con ensalada mixta', photo: 'tuna_salad', items: (kg) => [{ name: 'Atún', grams: round(1.5 * kg) }, { name: 'Ensalada mixta', grams: 200 }, { name: 'Aceite de oliva', grams: 10 }] },
+  { name: 'Hamburguesa de pavo', photo: 'turkey_burger', items: (kg) => [{ name: 'Hamburguesa de pavo', grams: round(1.7 * kg) }, { name: 'Pan integral', grams: 60 }, { name: 'Verduras', grams: 120 }] },
 ];
 
 // Convierte un plato del catálogo en una opción concreta (con foto y receta).
 const toOption = (d: Dish, kg: number): MealOption => ({
   id: uid(),
   name: d.name,
-  photoUri: foodPhoto(d.keywords),
+  photoUri: foodPhoto(d.photo),
   items: d.items(kg).map((it) => ({ id: uid(), name: it.name, grams: it.grams })),
 });
 
