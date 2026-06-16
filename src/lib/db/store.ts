@@ -5,7 +5,7 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 import { useShallow } from 'zustand/react/shallow';
 import { planEngine, type PlanInput } from '../plan/engine';
 import { makeSeed } from './seed';
-import type { ClientProfile, ClientStatus, DB, Exercise, Meal, NutritionDay, NutritionPlan, ProgressEntry, SetLog, User, WorkoutDay, WorkoutPlan } from './types';
+import type { ClientProfile, ClientStatus, DB, Exercise, Meal, NutritionDay, NutritionPlan, PlanTask, PlanTaskType, ProgressEntry, SetLog, User, WorkoutDay, WorkoutPlan } from './types';
 import { WEEKDAYS } from './types';
 
 // Adherencia: % de series marcadas como hechas sobre las prescritas en el plan.
@@ -61,6 +61,11 @@ interface State {
   // progreso
   addProgress: (entry: Omit<ProgressEntry, 'id'>) => void;
   removeProgress: (id: string) => void;
+
+  // planificación (calendario)
+  togglePlanTask: (id: string) => void;
+  addPlanTask: (task: { clientId: string; date: number; type: PlanTaskType; title: string }) => void;
+  removePlanTask: (id: string) => void;
 
   // CRM + perfil
   updateUser: (userId: string, patch: Partial<User>) => void;
@@ -326,6 +331,24 @@ export const useStore = create<State>()(
           db: { ...s.db, progress: s.db.progress.filter((p) => p.id !== id) },
         })),
 
+      togglePlanTask: (id) =>
+        set((s) => ({
+          db: { ...s.db, planTasks: set2(s.db.planTasks ?? [], (t) => t.id === id, (t) => ({ ...t, done: !t.done })) },
+        })),
+
+      addPlanTask: ({ clientId, date, type, title }) =>
+        set((s) => ({
+          db: {
+            ...s.db,
+            planTasks: [...(s.db.planTasks ?? []), { id: uid(), clientId, date, type, title, done: false }],
+          },
+        })),
+
+      removePlanTask: (id) =>
+        set((s) => ({
+          db: { ...s.db, planTasks: (s.db.planTasks ?? []).filter((t) => t.id !== id) },
+        })),
+
       updateUser: (userId, patch) =>
         set((s) => ({
           db: {
@@ -515,7 +538,7 @@ export const useStore = create<State>()(
     {
       // Sube la versión cuando cambian los datos semilla (p. ej. vídeos) para que
       // los dispositivos refresquen la demo en vez de quedarse con datos viejos.
-      name: 'fitnessencial-db-v4',
+      name: 'fitnessencial-db-v5',
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (s) => ({ db: s.db, sessionUserId: s.sessionUserId }),
     }
@@ -565,6 +588,14 @@ export const useProgressOf = (clientId?: string) =>
   useStore(
     useShallow((s) =>
       s.db.progress.filter((p) => p.clientId === clientId).sort((a, b) => a.date - b.date)
+    )
+  );
+
+// Tareas de la planificación (calendario) de un cliente, ordenadas por fecha.
+export const usePlanTasks = (clientId?: string): PlanTask[] =>
+  useStore(
+    useShallow((s) =>
+      (s.db.planTasks ?? []).filter((t) => t.clientId === clientId).sort((a, b) => a.date - b.date)
     )
   );
 

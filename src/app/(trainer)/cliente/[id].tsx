@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ChatView } from '@/components/features/ChatView';
 import { ClientCRM } from '@/components/features/ClientCRM';
 import { NutritionView } from '@/components/features/NutritionView';
+import { PlanningView } from '@/components/features/PlanningView';
 import { ProgressView } from '@/components/features/ProgressView';
 import { WorkoutView } from '@/components/features/WorkoutView';
 import { Button, Header, IconButton, Row, Segmented, Txt } from '@/components/ui';
@@ -14,6 +15,7 @@ import { colors, radius, space } from '@/lib/theme';
 
 const SEGMENTS = [
   { key: 'ficha', label: 'Ficha' },
+  { key: 'plan', label: 'Plan' },
   { key: 'entreno', label: 'Entreno' },
   { key: 'nutricion', label: 'Nutrición' },
   { key: 'progreso', label: 'Progreso' },
@@ -102,6 +104,7 @@ export default function ClienteDetalle() {
               onSend={sendToClient}
             />
           )}
+          {tab === 'plan' && <PlanningView clientId={client.id} mode="trainer" />}
           {tab === 'entreno' && <WorkoutView clientId={client.id} mode="trainer" />}
           {tab === 'nutricion' && <NutritionView clientId={client.id} mode="trainer" />}
           {tab === 'progreso' && <ProgressView clientId={client.id} mode="trainer" />}

@@ -151,6 +151,19 @@ export interface Reminder {
   done: boolean;
 }
 
+// Tipo de tarea de la planificación (calendario tipo Harbiz).
+export type PlanTaskType = 'nutrition' | 'workout' | 'cardio' | 'message' | 'metric' | 'photo' | 'note';
+
+// Tarea programada en el calendario de un cliente (día concreto).
+export interface PlanTask {
+  id: string;
+  clientId: string;
+  date: number; // timestamp del día programado
+  type: PlanTaskType;
+  title: string;
+  done: boolean;
+}
+
 export interface DB {
   users: User[];
   workoutPlans: WorkoutPlan[];
@@ -158,4 +171,5 @@ export interface DB {
   messages: Message[];
   progress: ProgressEntry[];
   reminders: Reminder[];
+  planTasks: PlanTask[];
 }

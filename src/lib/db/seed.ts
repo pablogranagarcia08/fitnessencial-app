@@ -1,9 +1,45 @@
 import { videoFor } from '../exerciseVideos';
 import { buildNutritionDays } from '../plan/generate';
-import type { DB } from './types';
+import type { DB, PlanTask, PlanTaskType } from './types';
 
 const day = 24 * 60 * 60 * 1000;
 const now = Date.now();
+
+const startOfDay = (ts: number) => {
+  const d = new Date(ts);
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+};
+const today0 = startOfDay(now);
+
+// Genera la planificación (calendario) de un cliente para ~2 meses alrededor de
+// hoy: hábitos diarios (nutrición + caminar), entrenos según su split, y métricas/
+// foto semanales. Las tareas pasadas quedan como hechas (adherencia realista).
+function makePlanTasks(clientId: string, workoutDays: number[], sessions: string[]): PlanTask[] {
+  const tasks: PlanTask[] = [];
+  let n = 0;
+  const push = (date: number, type: PlanTaskType, title: string) =>
+    tasks.push({ id: `pt-${clientId}-${n++}`, clientId, date, type, title, done: date < today0 });
+
+  for (let offset = -31; offset <= 35; offset++) {
+    const date = today0 + offset * day;
+    const dow = (new Date(date).getDay() + 6) % 7; // 0 = lunes
+    push(date, 'nutrition', 'Nutrición');
+    push(date, 'cardio', 'Caminar 30 min');
+    const wi = workoutDays.indexOf(dow);
+    if (wi !== -1) push(date, 'workout', sessions[wi % sessions.length]);
+    if (dow === 0) {
+      const week = Math.floor((date - startOfDay(today0 - 60 * day)) / (7 * day));
+      if (week % 2 === 0) {
+        push(date, 'metric', 'Métricas personales');
+        push(date, 'photo', 'Foto de progreso');
+      }
+    }
+  }
+  // Un mensaje motivador programado para dentro de unos días.
+  push(today0 + 3 * day, 'message', 'Mensaje programado: ¡vas genial, sigue así! 💪');
+  return tasks;
+}
 
 // Datos de ejemplo: 1 entrenador (Kike) + 2 clientes, con planes, chat y progreso.
 export function makeSeed(): DB {
@@ -146,6 +182,11 @@ export function makeSeed(): DB {
       { id: 'rem1', trainerId: 'trainer-kike', clientId: 'client-laura', text: 'Llamar a Laura para cerrar su plan', due: now, done: false },
       { id: 'rem2', trainerId: 'trainer-kike', clientId: 'client-david', text: 'Revisar progreso de David y subir cargas', due: now + 2 * day, done: false },
       { id: 'rem3', trainerId: 'trainer-kike', text: 'Preparar publicación para Instagram', due: now + 1 * day, done: false },
+    ],
+
+    planTasks: [
+      ...makePlanTasks('client-marta', [0, 1, 3, 5], ['Glúteos en Acción', 'Torso A · Brazos fuertes', 'Piernas completa + glúteo', 'Fuerza Superior y Full Body']),
+      ...makePlanTasks('client-david', [0, 1, 2, 3, 4], ['Push · Pecho/Hombro', 'Pull · Espalda/Bíceps', 'Pierna completa', 'Torso fuerza', 'Full Body']),
     ],
   };
 
