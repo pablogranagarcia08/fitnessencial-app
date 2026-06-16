@@ -64,7 +64,8 @@ interface State {
 
   // planificación (calendario)
   togglePlanTask: (id: string) => void;
-  addPlanTask: (task: { clientId: string; date: number; type: PlanTaskType; title: string }) => void;
+  addPlanTask: (task: { clientId: string; date: number; type: PlanTaskType; title: string; time?: string; body?: string }) => void;
+  updatePlanTask: (id: string, patch: Partial<Pick<PlanTask, 'type' | 'title' | 'time' | 'body'>>) => void;
   removePlanTask: (id: string) => void;
 
   // CRM + perfil
@@ -336,12 +337,17 @@ export const useStore = create<State>()(
           db: { ...s.db, planTasks: set2(s.db.planTasks ?? [], (t) => t.id === id, (t) => ({ ...t, done: !t.done })) },
         })),
 
-      addPlanTask: ({ clientId, date, type, title }) =>
+      addPlanTask: ({ clientId, date, type, title, time, body }) =>
         set((s) => ({
           db: {
             ...s.db,
-            planTasks: [...(s.db.planTasks ?? []), { id: uid(), clientId, date, type, title, done: false }],
+            planTasks: [...(s.db.planTasks ?? []), { id: uid(), clientId, date, type, title, time, body, done: false }],
           },
+        })),
+
+      updatePlanTask: (id, patch) =>
+        set((s) => ({
+          db: { ...s.db, planTasks: set2(s.db.planTasks ?? [], (t) => t.id === id, (t) => ({ ...t, ...patch })) },
         })),
 
       removePlanTask: (id) =>
@@ -538,7 +544,7 @@ export const useStore = create<State>()(
     {
       // Sube la versión cuando cambian los datos semilla (p. ej. vídeos) para que
       // los dispositivos refresquen la demo en vez de quedarse con datos viejos.
-      name: 'fitnessencial-db-v5',
+      name: 'fitnessencial-db-v6',
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (s) => ({ db: s.db, sessionUserId: s.sessionUserId }),
     }

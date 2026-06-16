@@ -18,8 +18,8 @@ const today0 = startOfDay(now);
 function makePlanTasks(clientId: string, workoutDays: number[], sessions: string[]): PlanTask[] {
   const tasks: PlanTask[] = [];
   let n = 0;
-  const push = (date: number, type: PlanTaskType, title: string) =>
-    tasks.push({ id: `pt-${clientId}-${n++}`, clientId, date, type, title, done: date < today0 });
+  const push = (date: number, type: PlanTaskType, title: string, extra?: Partial<PlanTask>) =>
+    tasks.push({ id: `pt-${clientId}-${n++}`, clientId, date, type, title, done: date < today0, ...extra });
 
   for (let offset = -31; offset <= 35; offset++) {
     const date = today0 + offset * day;
@@ -36,8 +36,11 @@ function makePlanTasks(clientId: string, workoutDays: number[], sessions: string
       }
     }
   }
-  // Un mensaje motivador programado para dentro de unos días.
-  push(today0 + 3 * day, 'message', 'Mensaje programado: ¡vas genial, sigue así! 💪');
+  // Un mensaje motivador programado para dentro de unos días, con hora de envío.
+  push(today0 + 3 * day, 'message', 'Mensaje programado', {
+    time: '09:00',
+    body: '¡Vas genial, sigue así! 💪 Esta semana subimos un poco las cargas. Cualquier duda me dices.',
+  });
   return tasks;
 }
 

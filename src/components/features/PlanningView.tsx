@@ -14,7 +14,7 @@ type ViewMode = 'month' | 'week' | 'day';
 
 export function PlanningView({ clientId, mode }: { clientId: string; mode: 'client' | 'trainer' }) {
   const tasks = usePlanTasks(clientId);
-  const { togglePlanTask, addPlanTask, removePlanTask } = useStore();
+  const { togglePlanTask, addPlanTask, removePlanTask, updatePlanTask } = useStore();
   const [view, setView] = useState<ViewMode>('month');
   const [anchor, setAnchor] = useState(() => startOfDay(Date.now()));
   const [modalDay, setModalDay] = useState<number | null>(null);
@@ -119,33 +119,61 @@ export function PlanningView({ clientId, mode }: { clientId: string; mode: 'clie
         onClose={() => setModalDay(null)}
         onToggle={togglePlanTask}
         onRemove={removePlanTask}
-        onAdd={(type, title) => modalDay != null && addPlanTask({ clientId, date: modalDay, type, title })}
+        onAdd={(data) => modalDay != null && addPlanTask({ clientId, date: modalDay, ...data })}
+        onUpdate={updatePlanTask}
       />
     </View>
   );
 }
 
 // ---------- Modal de día (al tocar una fecha) ----------
-function DayModal({ day, tasks, editable, onClose, onToggle, onRemove, onAdd }: {
+function DayModal({ day, tasks, editable, onClose, onToggle, onRemove, onAdd, onUpdate }: {
   day: number | null;
   tasks: PlanTask[];
   editable: boolean;
   onClose: () => void;
   onToggle: (id: string) => void;
   onRemove: (id: string) => void;
-  onAdd: (type: PlanTaskType, title: string) => void;
+  onAdd: (data: { type: PlanTaskType; title: string; time?: string; body?: string }) => void;
+  onUpdate: (id: string, patch: { type?: PlanTaskType; title?: string; time?: string; body?: string }) => void;
 }) {
-  const [adding, setAdding] = useState(false);
+  // form === null: no hay formulario abierto. 'new' = alta. otro string = editando ese id.
+  const [form, setForm] = useState<null | 'new' | string>(null);
   const [type, setType] = useState<PlanTaskType>('workout');
   const [title, setTitle] = useState('');
+  const [time, setTime] = useState('');
+  const [body, setBody] = useState('');
   if (day == null) return null;
 
-  const submit = () => {
-    onAdd(type, title.trim() || TASK_META[type].label);
-    setTitle('');
-    setAdding(false);
+  const resetForm = () => { setForm(null); setTitle(''); setTime(''); setBody(''); setType('workout'); };
+  const openNew = () => { resetForm(); setForm('new'); };
+  const openEdit = (t: PlanTask) => {
+    setForm(t.id);
+    setType(t.type);
+    setTitle(t.title);
+    setTime(t.time ?? '');
+    setBody(t.body ?? '');
   };
-  const close = () => { setAdding(false); setTitle(''); onClose(); };
+
+  // Normaliza la entrada de hora a "HH:MM" según se escribe.
+  const onTime = (v: string) => {
+    const d = v.replace(/[^0-9]/g, '').slice(0, 4);
+    setTime(d.length <= 2 ? d : `${d.slice(0, 2)}:${d.slice(2)}`);
+  };
+
+  const isMsg = type === 'message';
+  const submit = () => {
+    const data = {
+      type,
+      title: isMsg ? (title.trim() || 'Mensaje programado') : (title.trim() || TASK_META[type].label),
+      time: time.trim() || undefined,
+      body: isMsg ? (body.trim() || undefined) : undefined,
+    };
+    if (form === 'new') onAdd(data);
+    else if (form) onUpdate(form, data);
+    resetForm();
+  };
+  const close = () => { resetForm(); onClose(); };
 
   return (
     <Modal visible transparent animationType="fade" onRequestClose={close}>
@@ -173,13 +201,15 @@ function DayModal({ day, tasks, editable, onClose, onToggle, onRemove, onAdd }: 
                       </Txt>
                     </Pressable>
                     {t.done && <Ionicons name="checkmark-circle" size={20} color={colors.success} />}
+                    {editable && <IconButton icon="create-outline" color={colors.accent} size={18} onPress={() => openEdit(t)} />}
                     {editable && <IconButton icon="trash-outline" color={colors.danger} size={18} onPress={() => onRemove(t.id)} />}
                   </Row>
+                  {t.body ? <Txt variant="body" style={{ fontSize: 14 }}>{t.body}</Txt> : null}
                   <Row style={{ gap: 6 }}>
                     <Ionicons name="calendar-outline" size={14} color={colors.mute} />
                     <Txt variant="mute" style={{ fontSize: 13 }}>{shortDateLabel(t.date)}</Txt>
                     <Ionicons name="time-outline" size={14} color={colors.mute} style={{ marginLeft: 8 }} />
-                    <Txt variant="mute" style={{ fontSize: 13 }}>Todo el día</Txt>
+                    <Txt variant="mute" style={{ fontSize: 13 }}>{t.time ? `Se envía a las ${t.time}` : 'Todo el día'}</Txt>
                   </Row>
                   <Row style={{ gap: 6 }}>
                     <Ionicons name={meta.icon} size={14} color={meta.color} />
@@ -190,7 +220,7 @@ function DayModal({ day, tasks, editable, onClose, onToggle, onRemove, onAdd }: 
             })}
           </ScrollView>
 
-          {editable && adding && (
+          {editable && form && (
             <View style={{ gap: space.sm }}>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
                 {ADD_TYPES.map((ty) => {
@@ -202,15 +232,40 @@ function DayModal({ day, tasks, editable, onClose, onToggle, onRemove, onAdd }: 
                   );
                 })}
               </ScrollView>
-              <Row>
-                <TextInput value={title} onChangeText={setTitle} placeholder={TASK_META[type].label} placeholderTextColor={colors.mute} style={st.addInput} />
-                <Pressable onPress={submit} style={st.saveBtn}><Txt style={{ color: colors.bg, fontWeight: font.bold }}>OK</Txt></Pressable>
-              </Row>
+
+              {isMsg ? (
+                <>
+                  <TextInput
+                    value={body}
+                    onChangeText={setBody}
+                    placeholder="Escribe el mensaje que recibirá el cliente…"
+                    placeholderTextColor={colors.mute}
+                    multiline
+                    style={[st.addInput, { minHeight: 80, textAlignVertical: 'top' }]}
+                  />
+                  <Row style={{ gap: 8 }}>
+                    <Row style={[st.timeBox, { flex: 1 }]}>
+                      <Ionicons name="time-outline" size={16} color={colors.accent} />
+                      <Txt variant="mute" style={{ fontSize: 13 }}>Hora de envío</Txt>
+                      <TextInput value={time} onChangeText={onTime} placeholder="09:00" placeholderTextColor={colors.mute} keyboardType="numeric" maxLength={5} style={st.timeInput} />
+                    </Row>
+                    <Pressable onPress={submit} style={st.saveBtn}><Txt style={{ color: colors.bg, fontWeight: font.bold }}>OK</Txt></Pressable>
+                  </Row>
+                </>
+              ) : (
+                <Row>
+                  <TextInput value={title} onChangeText={setTitle} placeholder={TASK_META[type].label} placeholderTextColor={colors.mute} style={st.addInput} />
+                  <Pressable onPress={submit} style={st.saveBtn}><Txt style={{ color: colors.bg, fontWeight: font.bold }}>OK</Txt></Pressable>
+                </Row>
+              )}
+              <Pressable onPress={resetForm} style={{ alignSelf: 'center', paddingVertical: 4 }}>
+                <Txt variant="mute" style={{ fontSize: 13 }}>Cancelar</Txt>
+              </Pressable>
             </View>
           )}
 
-          {editable && !adding && (
-            <Pressable onPress={() => setAdding(true)} style={st.addNewBtn}>
+          {editable && !form && (
+            <Pressable onPress={openNew} style={st.addNewBtn}>
               <Txt style={{ color: colors.bg, fontWeight: font.bold, fontSize: 15 }}>Añadir nuevo</Txt>
             </Pressable>
           )}
@@ -409,6 +464,8 @@ const st = StyleSheet.create({
   modalCard: { width: '100%', maxWidth: 460, backgroundColor: colors.card, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.line, padding: space.lg, gap: space.sm },
   modalDot: { width: 12, height: 12, borderRadius: 6 },
   addNewBtn: { backgroundColor: colors.accent, borderRadius: radius.pill, paddingVertical: 14, alignItems: 'center', marginTop: space.xs },
+  timeBox: { backgroundColor: colors.bg2, borderRadius: radius.sm, borderWidth: 1, borderColor: colors.line, paddingHorizontal: 12, paddingVertical: 8, gap: 8 },
+  timeInput: { flex: 1, color: colors.ink, fontSize: 15, fontWeight: font.bold, textAlign: 'right', paddingVertical: 2 },
   typePill: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.bg2 },
   addInput: { flex: 1, backgroundColor: colors.bg2, borderRadius: radius.sm, borderWidth: 1, borderColor: colors.line, paddingHorizontal: 12, paddingVertical: 10, color: colors.ink, fontSize: 14 },
   saveBtn: { width: 44, height: 40, borderRadius: radius.sm, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' },

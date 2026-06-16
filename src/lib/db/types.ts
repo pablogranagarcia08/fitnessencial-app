@@ -162,6 +162,8 @@ export interface PlanTask {
   type: PlanTaskType;
   title: string;
   done: boolean;
+  time?: string; // hora programada "HH:MM" (p. ej. el envío de un mensaje)
+  body?: string; // contenido (texto del mensaje programado)
 }
 
 export interface DB {
