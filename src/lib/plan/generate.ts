@@ -1,6 +1,7 @@
-import type { Activity, Experience, GoalType, Meal, NutritionDay, NutritionPlan, Sex, WorkoutDay, WorkoutPlan } from '../db/types';
+import type { Activity, Experience, GoalType, MealOption, NutritionDay, NutritionPlan, Sex, WorkoutDay, WorkoutPlan } from '../db/types';
 import { WEEKDAYS } from '../db/types';
 import { videoFor } from '../exerciseVideos';
+import { foodPhoto } from '../foodPhotos';
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 const round = (n: number, step = 1) => Math.round(n / step) * step;
@@ -29,69 +30,71 @@ const GOAL_FACTOR: Record<GoalType, number> = { fatloss: 0.8, muscle: 1.1, maint
 const GOAL_REPS: Record<GoalType, string> = { fatloss: '12-15', muscle: '8-12', maintain: '10-12' };
 
 // ---------- Nutrición (Mifflin-St Jeor) ----------
-// Menús rotatorios: cada día de la semana usa una variante distinta de cada
-// comida, para que la dieta sea específica por día (no la misma todos los días).
+// Cada comida ofrece VARIAS OPCIONES (plato con foto + receta) entre las que el
+// cliente elige. Por día de la semana rotan las opciones para dar variedad.
 // Las cantidades exactas las ajusta luego Kike.
-const BREAKFASTS = [
-  (kg: number): Meal => ({ id: uid(), name: 'Desayuno', time: '08:30', items: [
-    { id: uid(), name: 'Avena', grams: round(0.7 * kg) }, { id: uid(), name: 'Claras de huevo', grams: 200 }, { id: uid(), name: 'Arándanos', grams: 100 } ] }),
-  (kg: number): Meal => ({ id: uid(), name: 'Desayuno', time: '08:30', items: [
-    { id: uid(), name: 'Tostadas integrales', grams: round(0.9 * kg) }, { id: uid(), name: 'Huevos enteros', grams: 150 }, { id: uid(), name: 'Aguacate', grams: 60 } ] }),
-  (kg: number): Meal => ({ id: uid(), name: 'Desayuno', time: '08:30', items: [
-    { id: uid(), name: 'Yogur griego', grams: 250 }, { id: uid(), name: 'Granola', grams: round(0.5 * kg) }, { id: uid(), name: 'Plátano', grams: 120 } ] }),
-  (kg: number): Meal => ({ id: uid(), name: 'Desayuno', time: '08:30', items: [
-    { id: uid(), name: 'Tortitas de avena', grams: round(0.8 * kg) }, { id: uid(), name: 'Requesón', grams: 150 }, { id: uid(), name: 'Miel', grams: 15 } ] }),
-  (kg: number): Meal => ({ id: uid(), name: 'Desayuno', time: '08:30', items: [
-    { id: uid(), name: 'Pan de centeno', grams: round(0.8 * kg) }, { id: uid(), name: 'Pavo', grams: 80 }, { id: uid(), name: 'Tomate', grams: 80 } ] }),
-  (kg: number): Meal => ({ id: uid(), name: 'Desayuno', time: '09:30', items: [
-    { id: uid(), name: 'Tortilla 3 huevos', grams: 180 }, { id: uid(), name: 'Pan integral', grams: round(0.7 * kg) }, { id: uid(), name: 'Fruta', grams: 120 } ] }),
-  (kg: number): Meal => ({ id: uid(), name: 'Desayuno', time: '09:30', items: [
-    { id: uid(), name: 'Batido proteína', grams: 30 }, { id: uid(), name: 'Avena', grams: round(0.7 * kg) }, { id: uid(), name: 'Crema de cacahuete', grams: 20 } ] }),
+type Dish = { name: string; keywords: string; items: (kg: number) => { name: string; grams?: number }[] };
+
+const BREAKFAST_DISHES: Dish[] = [
+  { name: 'Avena con claras y arándanos', keywords: 'oatmeal,berries', items: (kg) => [{ name: 'Avena', grams: round(0.7 * kg) }, { name: 'Claras de huevo', grams: 200 }, { name: 'Arándanos', grams: 100 }] },
+  { name: 'Tostadas con huevo y aguacate', keywords: 'avocado,toast,egg', items: (kg) => [{ name: 'Pan integral', grams: round(0.9 * kg) }, { name: 'Huevos', grams: 150 }, { name: 'Aguacate', grams: 60 }] },
+  { name: 'Yogur griego con granola', keywords: 'yogurt,granola,banana', items: (kg) => [{ name: 'Yogur griego', grams: 250 }, { name: 'Granola', grams: round(0.5 * kg) }, { name: 'Plátano', grams: 120 }] },
+  { name: 'Tortitas de avena y requesón', keywords: 'pancakes,oats', items: (kg) => [{ name: 'Tortitas de avena', grams: round(0.8 * kg) }, { name: 'Requesón', grams: 150 }, { name: 'Miel', grams: 15 }] },
+  { name: 'Pan de centeno con pavo', keywords: 'rye,bread,turkey', items: (kg) => [{ name: 'Pan de centeno', grams: round(0.8 * kg) }, { name: 'Pavo', grams: 80 }, { name: 'Tomate', grams: 80 }] },
+  { name: 'Tortilla con pan y fruta', keywords: 'omelette,fruit', items: (kg) => [{ name: 'Tortilla 3 huevos', grams: 180 }, { name: 'Pan integral', grams: round(0.7 * kg) }, { name: 'Fruta', grams: 120 }] },
 ];
 
-const LUNCHES = [
-  (kg: number): Meal => ({ id: uid(), name: 'Comida', time: '14:00', items: [
-    { id: uid(), name: 'Pechuga de pollo', grams: round(2 * kg) }, { id: uid(), name: 'Arroz blanco', grams: round(1.2 * kg) }, { id: uid(), name: 'Verduras salteadas', grams: 200 } ] }),
-  (kg: number): Meal => ({ id: uid(), name: 'Comida', time: '14:00', items: [
-    { id: uid(), name: 'Ternera magra', grams: round(1.9 * kg) }, { id: uid(), name: 'Patata cocida', grams: round(1.5 * kg) }, { id: uid(), name: 'Ensalada', grams: 200 } ] }),
-  (kg: number): Meal => ({ id: uid(), name: 'Comida', time: '14:00', items: [
-    { id: uid(), name: 'Salmón', grams: round(1.8 * kg) }, { id: uid(), name: 'Quinoa', grams: round(1.1 * kg) }, { id: uid(), name: 'Brócoli', grams: 200 } ] }),
-  (kg: number): Meal => ({ id: uid(), name: 'Comida', time: '14:00', items: [
-    { id: uid(), name: 'Pavo a la plancha', grams: round(2 * kg) }, { id: uid(), name: 'Pasta integral', grams: round(1.2 * kg) }, { id: uid(), name: 'Tomate y rúcula', grams: 180 } ] }),
-  (kg: number): Meal => ({ id: uid(), name: 'Comida', time: '14:00', items: [
-    { id: uid(), name: 'Merluza', grams: round(2 * kg) }, { id: uid(), name: 'Arroz integral', grams: round(1.2 * kg) }, { id: uid(), name: 'Pimientos', grams: 200 } ] }),
-  (kg: number): Meal => ({ id: uid(), name: 'Comida', time: '14:30', items: [
-    { id: uid(), name: 'Lentejas', grams: round(2.2 * kg) }, { id: uid(), name: 'Arroz', grams: round(0.8 * kg) }, { id: uid(), name: 'Verduras', grams: 150 } ] }),
-  (kg: number): Meal => ({ id: uid(), name: 'Comida', time: '14:30', items: [
-    { id: uid(), name: 'Pollo al horno', grams: round(2 * kg) }, { id: uid(), name: 'Boniato', grams: round(1.4 * kg) }, { id: uid(), name: 'Espárragos', grams: 180 } ] }),
+const LUNCH_DISHES: Dish[] = [
+  { name: 'Arroz con pollo', keywords: 'chicken,rice', items: (kg) => [{ name: 'Pechuga de pollo', grams: round(2 * kg) }, { name: 'Arroz blanco', grams: round(1.2 * kg) }, { name: 'Verduras salteadas', grams: 200 }] },
+  { name: 'Ternera con patata', keywords: 'beef,potato', items: (kg) => [{ name: 'Ternera magra', grams: round(1.9 * kg) }, { name: 'Patata cocida', grams: round(1.5 * kg) }, { name: 'Ensalada', grams: 200 }] },
+  { name: 'Salmón con quinoa', keywords: 'salmon,quinoa', items: (kg) => [{ name: 'Salmón', grams: round(1.8 * kg) }, { name: 'Quinoa', grams: round(1.1 * kg) }, { name: 'Brócoli', grams: 200 }] },
+  { name: 'Pavo con pasta integral', keywords: 'pasta,turkey', items: (kg) => [{ name: 'Pavo a la plancha', grams: round(2 * kg) }, { name: 'Pasta integral', grams: round(1.2 * kg) }, { name: 'Tomate y rúcula', grams: 180 }] },
+  { name: 'Merluza con arroz integral', keywords: 'fish,brown,rice', items: (kg) => [{ name: 'Merluza', grams: round(2 * kg) }, { name: 'Arroz integral', grams: round(1.2 * kg) }, { name: 'Pimientos', grams: 200 }] },
+  { name: 'Lentejas estofadas', keywords: 'lentils,stew', items: (kg) => [{ name: 'Lentejas', grams: round(2.2 * kg) }, { name: 'Arroz', grams: round(0.8 * kg) }, { name: 'Verduras', grams: 150 }] },
+  { name: 'Pollo al horno con boniato', keywords: 'roast,chicken,sweet,potato', items: (kg) => [{ name: 'Pollo al horno', grams: round(2 * kg) }, { name: 'Boniato', grams: round(1.4 * kg) }, { name: 'Espárragos', grams: 180 }] },
 ];
 
-const SNACKS = [
-  (): Meal => ({ id: uid(), name: 'Merienda', time: '18:00', items: [ { id: uid(), name: 'Yogur proteico', grams: 200 }, { id: uid(), name: 'Nueces', grams: 25 } ] }),
-  (): Meal => ({ id: uid(), name: 'Merienda', time: '18:00', items: [ { id: uid(), name: 'Requesón', grams: 200 }, { id: uid(), name: 'Manzana', grams: 150 } ] }),
-  (): Meal => ({ id: uid(), name: 'Merienda', time: '18:00', items: [ { id: uid(), name: 'Batido proteína', grams: 30 }, { id: uid(), name: 'Plátano', grams: 120 } ] }),
-  (): Meal => ({ id: uid(), name: 'Merienda', time: '18:00', items: [ { id: uid(), name: 'Tostada integral', grams: 60 }, { id: uid(), name: 'Pavo', grams: 80 } ] }),
-  (): Meal => ({ id: uid(), name: 'Merienda', time: '18:00', items: [ { id: uid(), name: 'Yogur griego', grams: 200 }, { id: uid(), name: 'Almendras', grams: 25 } ] }),
-  (): Meal => ({ id: uid(), name: 'Merienda', time: '18:30', items: [ { id: uid(), name: 'Fruta variada', grams: 200 }, { id: uid(), name: 'Crema de cacahuete', grams: 20 } ] }),
-  (): Meal => ({ id: uid(), name: 'Merienda', time: '18:30', items: [ { id: uid(), name: 'Queso fresco batido', grams: 200 }, { id: uid(), name: 'Frutos rojos', grams: 100 } ] }),
+const SNACK_DISHES: Dish[] = [
+  { name: 'Yogur proteico con nueces', keywords: 'yogurt,walnuts', items: () => [{ name: 'Yogur proteico', grams: 200 }, { name: 'Nueces', grams: 25 }] },
+  { name: 'Requesón con manzana', keywords: 'cottage,cheese,apple', items: () => [{ name: 'Requesón', grams: 200 }, { name: 'Manzana', grams: 150 }] },
+  { name: 'Batido de proteína y plátano', keywords: 'protein,shake,banana', items: () => [{ name: 'Batido proteína', grams: 30 }, { name: 'Plátano', grams: 120 }] },
+  { name: 'Tostada de pavo', keywords: 'turkey,sandwich', items: () => [{ name: 'Tostada integral', grams: 60 }, { name: 'Pavo', grams: 80 }] },
+  { name: 'Frutos secos y fruta', keywords: 'nuts,fruit', items: () => [{ name: 'Frutos secos', grams: 30 }, { name: 'Fruta', grams: 150 }] },
+  { name: 'Queso fresco con frutos rojos', keywords: 'cheese,berries', items: () => [{ name: 'Queso fresco batido', grams: 200 }, { name: 'Frutos rojos', grams: 100 }] },
 ];
 
-const DINNERS = [
-  (kg: number): Meal => ({ id: uid(), name: 'Cena', time: '21:30', items: [ { id: uid(), name: 'Salmón', grams: round(1.7 * kg) }, { id: uid(), name: 'Boniato', grams: 120 }, { id: uid(), name: 'Espinacas', grams: 150 } ] }),
-  (kg: number): Meal => ({ id: uid(), name: 'Cena', time: '21:30', items: [ { id: uid(), name: 'Tortilla de claras', grams: 220 }, { id: uid(), name: 'Verduras al horno', grams: round(2 * kg) } ] }),
-  (kg: number): Meal => ({ id: uid(), name: 'Cena', time: '21:30', items: [ { id: uid(), name: 'Pollo', grams: round(1.7 * kg) }, { id: uid(), name: 'Ensalada completa', grams: 200 } ] }),
-  (kg: number): Meal => ({ id: uid(), name: 'Cena', time: '21:30', items: [ { id: uid(), name: 'Merluza al vapor', grams: round(1.8 * kg) }, { id: uid(), name: 'Calabacín', grams: 200 } ] }),
-  (kg: number): Meal => ({ id: uid(), name: 'Cena', time: '21:30', items: [ { id: uid(), name: 'Atún', grams: round(1.5 * kg) }, { id: uid(), name: 'Ensalada mixta', grams: 200 }, { id: uid(), name: 'Aceite de oliva', grams: 10 } ] }),
-  (kg: number): Meal => ({ id: uid(), name: 'Cena', time: '22:00', items: [ { id: uid(), name: 'Hamburguesa de pavo', grams: round(1.7 * kg) }, { id: uid(), name: 'Pan integral', grams: 60 }, { id: uid(), name: 'Verduras', grams: 120 } ] }),
-  (kg: number): Meal => ({ id: uid(), name: 'Cena', time: '21:30', items: [ { id: uid(), name: 'Revuelto de huevos y gambas', grams: 220 }, { id: uid(), name: 'Setas', grams: 150 } ] }),
+const DINNER_DISHES: Dish[] = [
+  { name: 'Salmón con boniato', keywords: 'salmon,spinach', items: (kg) => [{ name: 'Salmón', grams: round(1.7 * kg) }, { name: 'Boniato', grams: 120 }, { name: 'Espinacas', grams: 150 }] },
+  { name: 'Tortilla de claras y verduras', keywords: 'egg,white,omelette,vegetables', items: (kg) => [{ name: 'Tortilla de claras', grams: 220 }, { name: 'Verduras al horno', grams: round(2 * kg) }] },
+  { name: 'Pollo con ensalada', keywords: 'grilled,chicken,salad', items: (kg) => [{ name: 'Pollo', grams: round(1.7 * kg) }, { name: 'Ensalada completa', grams: 200 }] },
+  { name: 'Merluza al vapor con calabacín', keywords: 'steamed,fish,zucchini', items: (kg) => [{ name: 'Merluza al vapor', grams: round(1.8 * kg) }, { name: 'Calabacín', grams: 200 }] },
+  { name: 'Atún con ensalada mixta', keywords: 'tuna,salad', items: (kg) => [{ name: 'Atún', grams: round(1.5 * kg) }, { name: 'Ensalada mixta', grams: 200 }, { name: 'Aceite de oliva', grams: 10 }] },
+  { name: 'Hamburguesa de pavo', keywords: 'turkey,burger', items: (kg) => [{ name: 'Hamburguesa de pavo', grams: round(1.7 * kg) }, { name: 'Pan integral', grams: 60 }, { name: 'Verduras', grams: 120 }] },
 ];
 
-// Construye las 7 dietas (lunes→domingo) variando las comidas cada día.
+// Convierte un plato del catálogo en una opción concreta (con foto y receta).
+const toOption = (d: Dish, kg: number): MealOption => ({
+  id: uid(),
+  name: d.name,
+  photoUri: foodPhoto(d.keywords),
+  items: d.items(kg).map((it) => ({ id: uid(), name: it.name, grams: it.grams })),
+});
+
+// Toma `count` platos del catálogo empezando en `start` (rota para dar variedad).
+const pickOptions = (pool: Dish[], start: number, count: number, kg: number): MealOption[] =>
+  Array.from({ length: count }, (_, k) => toOption(pool[(start + k) % pool.length], kg));
+
+// Construye las 7 dietas (lunes→domingo); cada comida con varias opciones a elegir.
 export function buildNutritionDays(kg: number): NutritionDay[] {
   return WEEKDAYS.map((wd, i) => ({
     id: uid(),
     weekday: wd.key,
-    meals: [BREAKFASTS[i](kg), LUNCHES[i](kg), SNACKS[i](), DINNERS[i](kg)],
+    meals: [
+      { id: uid(), name: 'Desayuno', time: '08:30', options: pickOptions(BREAKFAST_DISHES, i, 3, kg) },
+      { id: uid(), name: 'Comida', time: '14:00', options: pickOptions(LUNCH_DISHES, i, 4, kg) },
+      { id: uid(), name: 'Merienda', time: '18:00', options: pickOptions(SNACK_DISHES, i, 3, kg) },
+      { id: uid(), name: 'Cena', time: '21:30', options: pickOptions(DINNER_DISHES, i, 3, kg) },
+    ],
   }));
 }
 

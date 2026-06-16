@@ -81,11 +81,19 @@ export interface MealItem {
   grams?: number;
 }
 
+// Una opción concreta de una comida: un plato con su foto y su receta (ingredientes).
+export interface MealOption {
+  id: string;
+  name: string; // "Arroz con pollo"
+  photoUri?: string; // foto del plato
+  items: MealItem[]; // ingredientes / receta
+}
+
 export interface Meal {
   id: string;
   name: string; // "Desayuno"
   time: string; // "08:00"
-  items: MealItem[];
+  options: MealOption[]; // varias opciones a elegir por el cliente
 }
 
 // Día de la semana al que se asocia una dieta concreta.

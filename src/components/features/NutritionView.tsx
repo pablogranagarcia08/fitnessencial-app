@@ -1,8 +1,10 @@
+import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { Button, Card, EmptyState, IconButton, Row, SectionTitle, Txt } from '@/components/ui';
 import { useNutritionPlan, useStore } from '@/lib/db/store';
-import { WEEKDAYS, type Weekday } from '@/lib/db/types';
+import { WEEKDAYS, type MealOption, type Weekday } from '@/lib/db/types';
 import { colors, font, radius, space } from '@/lib/theme';
 
 // Día de la semana de hoy (getDay: 0=domingo) en nuestras claves.
@@ -10,7 +12,10 @@ const todayWeekday = (): Weekday => (['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 
 
 export function NutritionView({ clientId, mode }: { clientId: string; mode: 'client' | 'trainer' }) {
   const plan = useNutritionPlan(clientId);
-  const { updateNutrition, addMeal, removeMeal, addMealItem, removeMealItem, copyDayToAll, createNutritionPlan } = useStore();
+  const {
+    updateNutrition, addMeal, removeMeal, addMealOption, removeMealOption,
+    addMealItem, removeMealItem, copyDayToAll, createNutritionPlan,
+  } = useStore();
   const [selected, setSelected] = useState<Weekday>(todayWeekday());
 
   if (!plan) {
@@ -41,7 +46,7 @@ export function NutritionView({ clientId, mode }: { clientId: string; mode: 'cli
       </Card>
 
       {/* Selector de día de la semana */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+      <View style={{ flexDirection: 'row', gap: 8 }}>
         {WEEKDAYS.map((w) => {
           const active = w.key === selected;
           return (
@@ -50,7 +55,7 @@ export function NutritionView({ clientId, mode }: { clientId: string; mode: 'cli
             </Pressable>
           );
         })}
-      </ScrollView>
+      </View>
 
       <Row style={{ justifyContent: 'space-between' }}>
         <SectionTitle>{dayLabel}</SectionTitle>
@@ -60,7 +65,7 @@ export function NutritionView({ clientId, mode }: { clientId: string; mode: 'cli
       </Row>
 
       {day?.meals.map((meal) => (
-        <Card key={meal.id}>
+        <View key={meal.id} style={{ gap: space.sm }}>
           <Row style={{ justifyContent: 'space-between' }}>
             <Row>
               <Txt variant="subtitle">{meal.name}</Txt>
@@ -68,24 +73,26 @@ export function NutritionView({ clientId, mode }: { clientId: string; mode: 'cli
             </Row>
             {editable && <IconButton icon="trash-outline" color={colors.danger} size={18} onPress={() => removeMeal(plan.id, day.id, meal.id)} />}
           </Row>
+          {!editable && <Txt variant="mute" style={{ fontSize: 13 }}>Elige una de estas opciones:</Txt>}
 
-          {meal.items.map((it) => (
-            <Row key={it.id} style={{ justifyContent: 'space-between', paddingVertical: 2 }}>
-              <Row>
-                <View style={st.dot} />
-                <Txt variant="body" style={{ color: colors.ink }}>{it.name}</Txt>
-              </Row>
-              <Row>
-                {it.grams ? <Txt variant="mute">{it.grams} g</Txt> : null}
-                {editable && <IconButton icon="close" color={colors.mute} size={16} onPress={() => removeMealItem(plan.id, day.id, meal.id, it.id)} />}
-              </Row>
-            </Row>
+          {meal.options.map((opt, i) => (
+            <OptionCard
+              key={opt.id}
+              option={opt}
+              index={i}
+              editable={editable}
+              onRemove={() => removeMealOption(plan.id, day.id, meal.id, opt.id)}
+              onAddItem={(name, grams) => addMealItem(plan.id, day.id, meal.id, opt.id, name, grams)}
+              onRemoveItem={(itemId) => removeMealItem(plan.id, day.id, meal.id, opt.id, itemId)}
+            />
           ))}
 
-          {meal.items.length === 0 && <Txt variant="mute">Sin alimentos.</Txt>}
+          {meal.options.length === 0 && <Txt variant="mute">Sin opciones.</Txt>}
 
-          {editable && <AddItem onAdd={(name, grams) => addMealItem(plan.id, day.id, meal.id, name, grams)} />}
-        </Card>
+          {editable && (
+            <Button title="Añadir opción" variant="ghost" small icon="add" onPress={() => addMealOption(plan.id, day.id, meal.id)} />
+          )}
+        </View>
       ))}
 
       {day && day.meals.length === 0 && (
@@ -94,6 +101,53 @@ export function NutritionView({ clientId, mode }: { clientId: string; mode: 'cli
 
       {editable && day && <Button title="Añadir comida" variant="ghost" icon="add" onPress={() => addMeal(plan.id, day.id)} />}
     </View>
+  );
+}
+
+// Tarjeta de una opción: foto del plato + nombre + receta (ingredientes).
+function OptionCard({ option, index, editable, onRemove, onAddItem, onRemoveItem }: {
+  option: MealOption;
+  index: number;
+  editable: boolean;
+  onRemove: () => void;
+  onAddItem: (name: string, grams?: number) => void;
+  onRemoveItem: (itemId: string) => void;
+}) {
+  return (
+    <Card style={{ padding: 0, overflow: 'hidden', gap: 0 }}>
+      {option.photoUri ? (
+        <Image source={{ uri: option.photoUri }} style={st.photo} contentFit="cover" transition={200} />
+      ) : (
+        <View style={[st.photo, st.photoPlaceholder]}>
+          <Ionicons name="restaurant-outline" size={28} color={colors.mute} />
+        </View>
+      )}
+      <View style={{ padding: space.md, gap: 8 }}>
+        <Row style={{ justifyContent: 'space-between' }}>
+          <View style={{ flex: 1 }}>
+            <Txt variant="label" style={{ color: colors.accent }}>OPCIÓN {index + 1}</Txt>
+            <Txt variant="subtitle">{option.name}</Txt>
+          </View>
+          {editable && <IconButton icon="trash-outline" color={colors.danger} size={18} onPress={onRemove} />}
+        </Row>
+
+        {option.items.map((it) => (
+          <Row key={it.id} style={{ justifyContent: 'space-between', paddingVertical: 1 }}>
+            <Row>
+              <View style={st.dot} />
+              <Txt variant="body" style={{ color: colors.ink }}>{it.name}</Txt>
+            </Row>
+            <Row>
+              {it.grams ? <Txt variant="mute">{it.grams} g</Txt> : null}
+              {editable && <IconButton icon="close" color={colors.mute} size={16} onPress={() => onRemoveItem(it.id)} />}
+            </Row>
+          </Row>
+        ))}
+        {option.items.length === 0 && <Txt variant="mute" style={{ fontSize: 13 }}>Sin ingredientes.</Txt>}
+
+        {editable && <AddItem onAdd={onAddItem} />}
+      </View>
+    </Card>
   );
 }
 
@@ -128,7 +182,7 @@ function AddItem({ onAdd }: { onAdd: (name: string, grams?: number) => void }) {
   };
   return (
     <Row style={{ marginTop: 4 }}>
-      <TextInput value={name} onChangeText={setName} placeholder="Alimento" placeholderTextColor={colors.mute} style={[st.addInput, { flex: 1 }]} />
+      <TextInput value={name} onChangeText={setName} placeholder="Ingrediente" placeholderTextColor={colors.mute} style={[st.addInput, { flex: 1 }]} />
       <TextInput value={grams} onChangeText={setGrams} placeholder="g" placeholderTextColor={colors.mute} keyboardType="numeric" style={[st.addInput, { width: 52, textAlign: 'center' }]} />
       <Pressable onPress={add} style={({ pressed }) => [st.addBtn, pressed && { opacity: 0.7 }]}>
         <Txt style={{ color: colors.bg, fontWeight: font.bold }}>+</Txt>
@@ -139,10 +193,11 @@ function AddItem({ onAdd }: { onAdd: (name: string, grams?: number) => void }) {
 
 const st = StyleSheet.create({
   dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.accent },
+  photo: { width: '100%', height: 150, backgroundColor: colors.bg2 },
+  photoPlaceholder: { alignItems: 'center', justifyContent: 'center' },
   dayTab: {
-    minWidth: 40,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    flex: 1,
+    paddingVertical: 9,
     borderRadius: radius.sm,
     borderWidth: 1,
     borderColor: colors.line,
