@@ -6,7 +6,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { planEngine, type PlanInput } from '../plan/engine';
 import { buildScheduleTasks } from '../plan/generate';
 import { makeSeed } from './seed';
-import type { ClientProfile, ClientStatus, DB, Exercise, Meal, MealOption, NutritionDay, NutritionPlan, NutritionTemplate, PlanTask, PlanTaskType, ProgressEntry, RoutineTemplate, SetLog, User, Weekday, WorkoutDay, WorkoutPlan } from './types';
+import type { ClientProfile, ClientStatus, DB, Exercise, ExerciseOverride, Meal, MealOption, NutritionDay, NutritionPlan, NutritionTemplate, PlanTask, PlanTaskType, ProgressEntry, RoutineTemplate, SetLog, User, Weekday, WorkoutDay, WorkoutPlan } from './types';
 import { WEEKDAYS } from './types';
 
 // Adherencia: % de series marcadas como hechas sobre las prescritas en el plan.
@@ -48,6 +48,7 @@ interface State {
   addWorkoutDayFor: (planId: string, weekday: Weekday) => void; // crea sesión en un día de la semana
   updateWorkoutDay: (planId: string, dayId: string, patch: Partial<Pick<WorkoutDay, 'name'>>) => void;
   removeWorkoutDay: (planId: string, dayId: string) => void;
+  setWeekOverride: (planId: string, week: number, exId: string, patch: ExerciseOverride) => void; // progresión por semana
   resetDayProgress: (planId: string, dayId: string) => void;
 
   // biblioteca de rutinas reutilizables (entrenador)
@@ -262,6 +263,20 @@ export const useStore = create<State>()(
               updatedAt: Date.now(),
               days: p.days.filter((d) => d.id !== dayId),
             })),
+          },
+        })),
+
+      setWeekOverride: (planId, week, exId, patch) =>
+        set((s) => ({
+          db: {
+            ...s.db,
+            workoutPlans: set2(s.db.workoutPlans, (p) => p.id === planId, (p) => {
+              const all = { ...(p.weekOverrides ?? {}) };
+              const wk = { ...(all[week] ?? {}) };
+              wk[exId] = { ...wk[exId], ...patch };
+              all[week] = wk;
+              return { ...p, updatedAt: Date.now(), weekOverrides: all };
+            }),
           },
         })),
 

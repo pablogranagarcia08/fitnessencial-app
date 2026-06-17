@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
-import { Modal, Platform, Pressable, StyleSheet, TextInput, useWindowDimensions, View } from 'react-native';
+import { Modal, Platform, Pressable, ScrollView, StyleSheet, TextInput, useWindowDimensions, View } from 'react-native';
 import { Button, Card, EmptyState, IconButton, Row, SectionTitle, Txt } from '@/components/ui';
 import { hasVideo, openVideoNative, VideoModal, VideoThumb } from '@/components/VideoPlayer';
 import { useRoutines, useStore, useWorkoutPlan } from '@/lib/db/store';
@@ -15,7 +15,7 @@ const todayWeekday = (): Weekday => (['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 
 
 export function WorkoutView({ clientId, mode }: { clientId: string; mode: 'client' | 'trainer' }) {
   const plan = useWorkoutPlan(clientId);
-  const { logSet, updateExercise, addExercise, removeExercise, addWorkoutDayFor, updateWorkoutDay, removeWorkoutDay, resetDayProgress, createWorkoutPlan, saveRoutine, saveFullRoutine, removeRoutine, applyRoutine, addRoutineAsDay, applyFullRoutine, createWorkoutFromRoutine } = useStore();
+  const { logSet, updateExercise, addExercise, removeExercise, addWorkoutDayFor, updateWorkoutDay, removeWorkoutDay, setWeekOverride, resetDayProgress, createWorkoutPlan, saveRoutine, saveFullRoutine, removeRoutine, applyRoutine, addRoutineAsDay, applyFullRoutine, createWorkoutFromRoutine } = useStore();
   const routines = useRoutines();
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [selected, setSelected] = useState<Weekday>(todayWeekday());
@@ -23,6 +23,8 @@ export function WorkoutView({ clientId, mode }: { clientId: string; mode: 'clien
   const [pick, setPick] = useState<{ target: 'day'; dayId: string } | { target: 'newday'; weekday: Weekday } | { target: 'plan' } | { target: 'create' } | null>(null);
   // Guardar como rutina: una sesión concreta o el plan completo.
   const [saveModal, setSaveModal] = useState<{ kind: 'session'; day: WorkoutDay } | { kind: 'full' } | null>(null);
+  // Semana del bloque (progresión). 1 = valores base; 2..N usan ajustes por semana.
+  const [week, setWeek] = useState(1);
 
   // En web reproduce en un modal; en móvil abre YouTube/navegador.
   const playVideo = (url: string) => {
@@ -57,6 +59,12 @@ export function WorkoutView({ clientId, mode }: { clientId: string; mode: 'clien
   const total = day?.exercises.length ?? 0;
   const done = day?.exercises.filter(exDone).length ?? 0;
   const pct = total ? Math.round((done / total) * 100) : 0;
+  const weeksCount = plan.weeks ?? 1;
+  // Ejercicio con los ajustes de la semana seleccionada aplicados (series/reps/kg).
+  const forWeek = (ex: Exercise): Exercise => (week === 1 ? ex : { ...ex, ...(plan.weekOverrides?.[week]?.[ex.id] ?? {}) });
+  // Edita series/reps/kg: en semana 1 cambia el valor base; en otras, solo esa semana.
+  const editEx = (dayId: string, exId: string, patch: { sets?: number; reps?: string; weightKg?: number }) =>
+    week === 1 ? updateExercise(plan.id, dayId, exId, patch) : setWeekOverride(plan.id, week, exId, patch);
 
   return (
     <View style={{ gap: space.md }}>
@@ -83,6 +91,27 @@ export function WorkoutView({ clientId, mode }: { clientId: string; mode: 'clien
           );
         })}
       </View>
+
+      {/* Selector de semana del bloque (progresión) — solo entrenador */}
+      {mode === 'trainer' && weeksCount > 1 && (
+        <View style={{ gap: 6 }}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
+            {Array.from({ length: weeksCount }, (_, i) => i + 1).map((w) => {
+              const active = w === week;
+              const tuned = !!plan.weekOverrides?.[w] && Object.keys(plan.weekOverrides[w]).length > 0;
+              return (
+                <Pressable key={w} onPress={() => setWeek(w)} style={[st.weekPill, active && st.weekPillActive]}>
+                  <Txt style={{ fontSize: 12, fontWeight: font.semibold, color: active ? colors.bg : colors.inkSoft }}>Sem {w}</Txt>
+                  {tuned && !active && <View style={st.weekDot} />}
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+          <Txt variant="mute" style={{ fontSize: 12 }}>
+            {week === 1 ? 'Semana base. Edita series/reps/kg aquí para arrancar.' : `Editando solo series/reps/kg de la semana ${week}.`}
+          </Txt>
+        </View>
+      )}
 
       {!day ? (
         // Día de descanso (sin sesión asignada).
@@ -132,6 +161,7 @@ export function WorkoutView({ clientId, mode }: { clientId: string; mode: 'clien
                 onPlay={playVideo}
               />
             ) : (
+              ((exW) => (
               <View key={ex.id} style={st.editCard}>
                 <TextInput
                   value={ex.name}
@@ -141,18 +171,18 @@ export function WorkoutView({ clientId, mode }: { clientId: string; mode: 'clien
                   placeholderTextColor={colors.mute}
                 />
                 <View style={st.editFields}>
-                  <NumField label="Series" value={ex.sets} onChange={(n) => updateExercise(plan.id, day.id, ex.id, { sets: n })} />
+                  <NumField label="Series" value={exW.sets} onChange={(n) => editEx(day.id, ex.id, { sets: n })} />
                   <View style={{ flex: 1, gap: 3 }}>
                     <Txt variant="mute" style={{ fontSize: 10 }}>Reps</Txt>
                     <TextInput
-                      value={ex.reps}
-                      onChangeText={(t) => updateExercise(plan.id, day.id, ex.id, { reps: t })}
+                      value={exW.reps}
+                      onChangeText={(t) => editEx(day.id, ex.id, { reps: t })}
                       style={[st.editInput, { textAlign: 'center' }]}
                       placeholder="reps"
                       placeholderTextColor={colors.mute}
                     />
                   </View>
-                  <NumField label="Kg" value={ex.weightKg ?? 0} onChange={(n) => updateExercise(plan.id, day.id, ex.id, { weightKg: n })} />
+                  <NumField label="Kg" value={exW.weightKg ?? 0} onChange={(n) => editEx(day.id, ex.id, { weightKg: n })} />
                   <IconButton icon="trash-outline" color={colors.danger} size={20} onPress={() => removeExercise(plan.id, day.id, ex.id)} style={{ paddingBottom: 8 }} />
                 </View>
                 <Row style={{ gap: 8 }}>
@@ -171,6 +201,7 @@ export function WorkoutView({ clientId, mode }: { clientId: string; mode: 'clien
                 </Row>
                 <LoggedSummary ex={ex} />
               </View>
+              ))(forWeek(ex))
             )
           )}
 
@@ -447,6 +478,9 @@ const st = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center', padding: space.lg },
   modalCard: { width: '100%', maxWidth: 460, backgroundColor: colors.card, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.line, padding: space.lg, gap: space.sm },
   routineItem: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.bg2, borderRadius: radius.md, borderWidth: 1, borderColor: colors.line, paddingHorizontal: space.md, paddingVertical: 12 },
+  weekPill: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 14, paddingVertical: 8, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.bg2 },
+  weekPillActive: { backgroundColor: colors.accent, borderColor: colors.accent },
+  weekDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: colors.accent },
   dayTab: { flex: 1, paddingVertical: 9, borderRadius: radius.sm, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.bg2, alignItems: 'center', gap: 4 },
   dayTabActive: { backgroundColor: colors.accent, borderColor: colors.accent },
   dayDot: { width: 5, height: 5, borderRadius: 3 },

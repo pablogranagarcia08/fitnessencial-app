@@ -90,12 +90,22 @@ export interface NutritionTemplate {
 // 'active' (o sin estado) = ya enviado al cliente, visible para él.
 export type PlanStatus = 'draft' | 'active';
 
+// Ajustes por semana de un ejercicio (progresión): solo series/reps/kg.
+export interface ExerciseOverride {
+  sets?: number;
+  reps?: string;
+  weightKg?: number;
+}
+
 export interface WorkoutPlan {
   id: string;
   clientId: string;
   name: string;
   days: WorkoutDay[];
   weeks?: number; // duración del bloque en semanas (p. ej. 12)
+  // Ajustes por semana (clave = nº de semana 2..N) y por ejercicio (clave = exerciseId).
+  // La semana 1 son los valores base de cada ejercicio.
+  weekOverrides?: Record<number, Record<string, ExerciseOverride>>;
   updatedAt: number;
   status?: PlanStatus;
 }
