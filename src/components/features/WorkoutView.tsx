@@ -59,7 +59,7 @@ export function WorkoutView({ clientId, mode }: { clientId: string; mode: 'clien
   const total = day?.exercises.length ?? 0;
   const done = day?.exercises.filter(exDone).length ?? 0;
   const pct = total ? Math.round((done / total) * 100) : 0;
-  const weeksCount = plan.weeks ?? 1;
+  const weeksCount = plan.weeks ?? 12;
   // Ejercicio con los ajustes de la semana seleccionada aplicados (series/reps/kg).
   const forWeek = (ex: Exercise): Exercise => (week === 1 ? ex : { ...ex, ...(plan.weekOverrides?.[week]?.[ex.id] ?? {}) });
   // Edita series/reps/kg: en semana 1 cambia el valor base; en otras, solo esa semana.
