@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useState } from 'react';
-import { Modal, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { Button, Card, EmptyState, IconButton, Row, SectionTitle, Txt } from '@/components/ui';
 import { useNutritionPlan, useNutritionTemplates, useStore } from '@/lib/db/store';
 import { WEEKDAYS, type MealOption, type NutritionTemplate, type Weekday } from '@/lib/db/types';
@@ -20,6 +20,7 @@ export function NutritionView({ clientId, mode }: { clientId: string; mode: 'cli
   } = useStore();
   const templates = useNutritionTemplates();
   const [selected, setSelected] = useState<Weekday>(todayWeekday());
+  const [week, setWeek] = useState(1);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [saveOpen, setSaveOpen] = useState(false);
 
@@ -45,7 +46,10 @@ export function NutritionView({ clientId, mode }: { clientId: string; mode: 'cli
   }
 
   const editable = mode === 'trainer';
-  const day = plan.days.find((d) => d.weekday === selected) ?? plan.days[0];
+  const weeksCount = plan.weeks ?? 12;
+  // Datos de la semana seleccionada: base (semana 1) o su personalización si existe.
+  const wd = (week > 1 && plan.weekData?.[week]) || plan;
+  const day = wd.days.find((d) => d.weekday === selected) ?? wd.days[0];
   const dayLabel = WEEKDAYS.find((w) => w.key === selected)?.label ?? '';
 
   return (
@@ -56,10 +60,10 @@ export function NutritionView({ clientId, mode }: { clientId: string; mode: 'cli
           {plan.weeks ? <Txt variant="mute" style={{ fontSize: 12 }}>Bloque de {plan.weeks} semanas</Txt> : null}
         </Row>
         <Row style={{ justifyContent: 'space-between' }}>
-          <Macro label="kcal" value={plan.dailyKcal} editable={editable} big onChange={(n) => updateNutrition(plan.id, { dailyKcal: n })} />
-          <Macro label="Proteína" value={plan.protein} unit="g" editable={editable} onChange={(n) => updateNutrition(plan.id, { protein: n })} />
-          <Macro label="Carbos" value={plan.carbs} unit="g" editable={editable} onChange={(n) => updateNutrition(plan.id, { carbs: n })} />
-          <Macro label="Grasas" value={plan.fat} unit="g" editable={editable} onChange={(n) => updateNutrition(plan.id, { fat: n })} />
+          <Macro label="kcal" value={wd.dailyKcal} editable={editable} big onChange={(n) => updateNutrition(plan.id, week, { dailyKcal: n })} />
+          <Macro label="Proteína" value={wd.protein} unit="g" editable={editable} onChange={(n) => updateNutrition(plan.id, week, { protein: n })} />
+          <Macro label="Carbos" value={wd.carbs} unit="g" editable={editable} onChange={(n) => updateNutrition(plan.id, week, { carbs: n })} />
+          <Macro label="Grasas" value={wd.fat} unit="g" editable={editable} onChange={(n) => updateNutrition(plan.id, week, { fat: n })} />
         </Row>
       </Card>
 
@@ -68,6 +72,27 @@ export function NutritionView({ clientId, mode }: { clientId: string; mode: 'cli
           <Button title="Guardar plan" variant="ghost" icon="bookmark-outline" small onPress={() => setSaveOpen(true)} />
           <Button title="Cargar plan guardado" variant="ghost" icon="albums-outline" small onPress={() => setPickerOpen(true)} />
         </Row>
+      )}
+
+      {/* Selector de semana del bloque — solo entrenador */}
+      {editable && weeksCount > 1 && (
+        <View style={{ gap: 6 }}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
+            {Array.from({ length: weeksCount }, (_, i) => i + 1).map((w) => {
+              const active = w === week;
+              const tuned = w > 1 && !!plan.weekData?.[w];
+              return (
+                <Pressable key={w} onPress={() => setWeek(w)} style={[st.weekPill, active && st.weekPillActive]}>
+                  <Txt style={{ fontSize: 12, fontWeight: font.semibold, color: active ? colors.bg : colors.inkSoft }}>Sem {w}</Txt>
+                  {tuned && !active && <View style={st.weekDot} />}
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+          <Txt variant="mute" style={{ fontSize: 12 }}>
+            {week === 1 ? 'Semana base. Edita macros y comidas aquí.' : `Editando solo la semana ${week} (parte de la base).`}
+          </Txt>
+        </View>
       )}
 
       {/* Selector de día de la semana */}
@@ -85,7 +110,7 @@ export function NutritionView({ clientId, mode }: { clientId: string; mode: 'cli
       <Row style={{ justifyContent: 'space-between' }}>
         <SectionTitle>{dayLabel}</SectionTitle>
         {editable && day && (
-          <IconButton icon="copy-outline" color={colors.accent} size={18} onPress={() => copyDayToAll(plan.id, day.id)} />
+          <IconButton icon="copy-outline" color={colors.accent} size={18} onPress={() => copyDayToAll(plan.id, week, day.id)} />
         )}
       </Row>
 
@@ -96,7 +121,7 @@ export function NutritionView({ clientId, mode }: { clientId: string; mode: 'cli
               <Txt variant="subtitle">{meal.name}</Txt>
               <Txt variant="mute">{meal.time}</Txt>
             </Row>
-            {editable && <IconButton icon="trash-outline" color={colors.danger} size={18} onPress={() => removeMeal(plan.id, day.id, meal.id)} />}
+            {editable && <IconButton icon="trash-outline" color={colors.danger} size={18} onPress={() => removeMeal(plan.id, week, day.id, meal.id)} />}
           </Row>
           {!editable && <Txt variant="mute" style={{ fontSize: 13 }}>Elige una de estas opciones:</Txt>}
 
@@ -106,16 +131,16 @@ export function NutritionView({ clientId, mode }: { clientId: string; mode: 'cli
               option={opt}
               index={i}
               editable={editable}
-              onRemove={() => removeMealOption(plan.id, day.id, meal.id, opt.id)}
-              onAddItem={(name, grams) => addMealItem(plan.id, day.id, meal.id, opt.id, name, grams)}
-              onRemoveItem={(itemId) => removeMealItem(plan.id, day.id, meal.id, opt.id, itemId)}
+              onRemove={() => removeMealOption(plan.id, week, day.id, meal.id, opt.id)}
+              onAddItem={(name, grams) => addMealItem(plan.id, week, day.id, meal.id, opt.id, name, grams)}
+              onRemoveItem={(itemId) => removeMealItem(plan.id, week, day.id, meal.id, opt.id, itemId)}
             />
           ))}
 
           {meal.options.length === 0 && <Txt variant="mute">Sin opciones.</Txt>}
 
           {editable && (
-            <Button title="Añadir opción" variant="ghost" small icon="add" onPress={() => addMealOption(plan.id, day.id, meal.id)} />
+            <Button title="Añadir opción" variant="ghost" small icon="add" onPress={() => addMealOption(plan.id, week, day.id, meal.id)} />
           )}
         </View>
       ))}
@@ -124,7 +149,7 @@ export function NutritionView({ clientId, mode }: { clientId: string; mode: 'cli
         <EmptyState icon="restaurant-outline" text={`Sin comidas para ${dayLabel.toLowerCase()}.`} />
       )}
 
-      {editable && day && <Button title="Añadir comida" variant="ghost" icon="add" onPress={() => addMeal(plan.id, day.id)} />}
+      {editable && day && <Button title="Añadir comida" variant="ghost" icon="add" onPress={() => addMeal(plan.id, week, day.id)} />}
 
       <NutritionTemplatePicker
         visible={pickerOpen}
@@ -136,7 +161,7 @@ export function NutritionView({ clientId, mode }: { clientId: string; mode: 'cli
       <SaveNutritionModal
         visible={saveOpen}
         onClose={() => setSaveOpen(false)}
-        onSave={(name) => { saveNutritionTemplate({ name, dailyKcal: plan.dailyKcal, protein: plan.protein, carbs: plan.carbs, fat: plan.fat, days: plan.days }); setSaveOpen(false); }}
+        onSave={(name) => { saveNutritionTemplate({ name, dailyKcal: wd.dailyKcal, protein: wd.protein, carbs: wd.carbs, fat: wd.fat, days: wd.days }); setSaveOpen(false); }}
       />
     </View>
   );
@@ -301,6 +326,9 @@ const st = StyleSheet.create({
     backgroundColor: colors.bg2,
     alignItems: 'center',
   },
+  weekPill: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 14, paddingVertical: 8, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.bg2 },
+  weekPillActive: { backgroundColor: colors.accent, borderColor: colors.accent },
+  weekDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: colors.accent },
   dayTabActive: {
     backgroundColor: colors.accent,
     borderColor: colors.accent,

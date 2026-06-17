@@ -152,6 +152,15 @@ export interface NutritionDay {
   meals: Meal[];
 }
 
+// Contenido de la dieta de una semana concreta (macros + días).
+export interface NutritionWeek {
+  dailyKcal: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  days: NutritionDay[];
+}
+
 export interface NutritionPlan {
   id: string;
   clientId: string;
@@ -159,8 +168,10 @@ export interface NutritionPlan {
   protein: number; // g
   carbs: number; // g
   fat: number; // g
-  days: NutritionDay[]; // dieta específica por cada día de la semana
+  days: NutritionDay[]; // dieta específica por cada día de la semana (semana base = 1)
   weeks?: number; // duración del bloque en semanas (p. ej. 12)
+  // Personalización por semana (clave = nº de semana 2..N). Si no existe, esa semana usa la base.
+  weekData?: Record<number, NutritionWeek>;
   updatedAt: number;
   status?: PlanStatus;
 }

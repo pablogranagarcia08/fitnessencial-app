@@ -6,7 +6,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { planEngine, type PlanInput } from '../plan/engine';
 import { buildScheduleTasks } from '../plan/generate';
 import { makeSeed } from './seed';
-import type { ClientProfile, ClientStatus, DB, Exercise, ExerciseOverride, Meal, MealOption, NutritionDay, NutritionPlan, NutritionTemplate, PlanTask, PlanTaskType, ProgressEntry, RoutineTemplate, SetLog, User, Weekday, WorkoutDay, WorkoutPlan } from './types';
+import type { ClientProfile, ClientStatus, DB, Exercise, ExerciseOverride, Meal, MealOption, NutritionDay, NutritionPlan, NutritionTemplate, NutritionWeek, PlanTask, PlanTaskType, ProgressEntry, RoutineTemplate, SetLog, User, Weekday, WorkoutDay, WorkoutPlan } from './types';
 import { WEEKDAYS } from './types';
 
 // Adherencia: % de series marcadas como hechas sobre las prescritas en el plan.
@@ -67,14 +67,15 @@ interface State {
   createNutritionFromTemplate: (clientId: string, templateId: string) => void; // crea el plan desde plantilla
 
   // nutrición (dieta por día de la semana; cada comida tiene varias opciones)
-  updateNutrition: (planId: string, patch: Partial<NutritionPlan>) => void;
-  addMeal: (planId: string, dayId: string) => void;
-  removeMeal: (planId: string, dayId: string, mealId: string) => void;
-  addMealOption: (planId: string, dayId: string, mealId: string) => void;
-  removeMealOption: (planId: string, dayId: string, mealId: string, optionId: string) => void;
-  addMealItem: (planId: string, dayId: string, mealId: string, optionId: string, name: string, grams?: number) => void;
-  removeMealItem: (planId: string, dayId: string, mealId: string, optionId: string, itemId: string) => void;
-  copyDayToAll: (planId: string, dayId: string) => void; // copia la dieta de un día al resto
+  // `week` = semana del bloque (1 = base; 2..N personalizan esa semana).
+  updateNutrition: (planId: string, week: number, patch: Partial<Pick<NutritionPlan, 'dailyKcal' | 'protein' | 'carbs' | 'fat'>>) => void;
+  addMeal: (planId: string, week: number, dayId: string) => void;
+  removeMeal: (planId: string, week: number, dayId: string, mealId: string) => void;
+  addMealOption: (planId: string, week: number, dayId: string, mealId: string) => void;
+  removeMealOption: (planId: string, week: number, dayId: string, mealId: string, optionId: string) => void;
+  addMealItem: (planId: string, week: number, dayId: string, mealId: string, optionId: string, name: string, grams?: number) => void;
+  removeMealItem: (planId: string, week: number, dayId: string, mealId: string, optionId: string, itemId: string) => void;
+  copyDayToAll: (planId: string, week: number, dayId: string) => void; // copia la dieta de un día al resto (esa semana)
 
   // chat
   sendMessage: (fromId: string, toId: string, text: string) => void;
@@ -130,15 +131,35 @@ const cloneNutritionDays = (days: NutritionDay[]): NutritionDay[] =>
 const emptyNutritionDays = (): NutritionDay[] =>
   WEEKDAYS.map((wd) => ({ id: uid(), weekday: wd.key, meals: [] }));
 
-// Aplica `fn` a las comidas de un día concreto (plan→día) y marca el plan actualizado.
-const mapMeals = (db: DB, planId: string, dayId: string, fn: (meals: Meal[]) => Meal[]): DB => ({
+// Datos (macros + días) de una semana concreta del plan: la base (semana 1) o su
+// personalización si existe. Si la semana N no se ha tocado, devuelve la base.
+const resolveNutritionWeek = (p: NutritionPlan, week: number): NutritionWeek =>
+  week > 1 && p.weekData?.[week]
+    ? p.weekData[week]
+    : { dailyKcal: p.dailyKcal, protein: p.protein, carbs: p.carbs, fat: p.fat, days: p.days };
+
+// Edita la semana indicada del plan. Semana 1 → base; semana N → su copia (se clona
+// de la base la primera vez que se toca). `fn` recibe y devuelve los datos de la semana.
+const editNutritionWeek = (db: DB, planId: string, week: number, fn: (w: NutritionWeek) => NutritionWeek): DB => ({
   ...db,
-  nutritionPlans: set2(db.nutritionPlans, (p) => p.id === planId, (p) => ({
-    ...p,
-    updatedAt: Date.now(),
-    days: set2(p.days, (d) => d.id === dayId, (d) => ({ ...d, meals: fn(d.meals) })),
-  })),
+  nutritionPlans: set2(db.nutritionPlans, (p) => p.id === planId, (p) => {
+    if (week <= 1) {
+      const next = fn({ dailyKcal: p.dailyKcal, protein: p.protein, carbs: p.carbs, fat: p.fat, days: p.days });
+      return { ...p, dailyKcal: next.dailyKcal, protein: next.protein, carbs: next.carbs, fat: next.fat, days: next.days, updatedAt: Date.now() };
+    }
+    const current: NutritionWeek = p.weekData?.[week] ?? {
+      dailyKcal: p.dailyKcal, protein: p.protein, carbs: p.carbs, fat: p.fat, days: cloneNutritionDays(p.days),
+    };
+    return { ...p, weekData: { ...(p.weekData ?? {}), [week]: fn(current) }, updatedAt: Date.now() };
+  }),
 });
+
+// Aplica `fn` a las comidas de un día concreto dentro de la semana indicada.
+const mapMeals = (db: DB, planId: string, week: number, dayId: string, fn: (meals: Meal[]) => Meal[]): DB =>
+  editNutritionWeek(db, planId, week, (w) => ({
+    ...w,
+    days: set2(w.days, (d) => d.id === dayId, (d) => ({ ...d, meals: fn(d.meals) })),
+  }));
 
 export const useStore = create<State>()(
   persist(
@@ -392,35 +413,27 @@ export const useStore = create<State>()(
           };
         }),
 
-      updateNutrition: (planId, patch) =>
+      updateNutrition: (planId, week, patch) =>
         set((s) => ({
-          db: {
-            ...s.db,
-            nutritionPlans: set2(s.db.nutritionPlans, (p) => p.id === planId, (p) => ({
-              ...p,
-              ...patch,
-              updatedAt: Date.now(),
-            })),
-          },
+          db: editNutritionWeek(s.db, planId, week, (w) => ({ ...w, ...patch })),
         })),
 
-      // Helper interno: mapea una comida concreta dentro de plan→día.
-      addMeal: (planId, dayId) =>
+      addMeal: (planId, week, dayId) =>
         set((s) => ({
-          db: mapMeals(s.db, planId, dayId, (meals) => [
+          db: mapMeals(s.db, planId, week, dayId, (meals) => [
             ...meals,
             { id: uid(), name: 'Nueva comida', time: '12:00', options: [{ id: uid(), name: 'Opción 1', items: [] }] } as Meal,
           ]),
         })),
 
-      removeMeal: (planId, dayId, mealId) =>
+      removeMeal: (planId, week, dayId, mealId) =>
         set((s) => ({
-          db: mapMeals(s.db, planId, dayId, (meals) => meals.filter((m) => m.id !== mealId)),
+          db: mapMeals(s.db, planId, week, dayId, (meals) => meals.filter((m) => m.id !== mealId)),
         })),
 
-      addMealOption: (planId, dayId, mealId) =>
+      addMealOption: (planId, week, dayId, mealId) =>
         set((s) => ({
-          db: mapMeals(s.db, planId, dayId, (meals) =>
+          db: mapMeals(s.db, planId, week, dayId, (meals) =>
             set2(meals, (m) => m.id === mealId, (m) => ({
               ...m,
               options: [...m.options, { id: uid(), name: `Opción ${m.options.length + 1}`, items: [] } as MealOption],
@@ -428,16 +441,16 @@ export const useStore = create<State>()(
           ),
         })),
 
-      removeMealOption: (planId, dayId, mealId, optionId) =>
+      removeMealOption: (planId, week, dayId, mealId, optionId) =>
         set((s) => ({
-          db: mapMeals(s.db, planId, dayId, (meals) =>
+          db: mapMeals(s.db, planId, week, dayId, (meals) =>
             set2(meals, (m) => m.id === mealId, (m) => ({ ...m, options: m.options.filter((o) => o.id !== optionId) }))
           ),
         })),
 
-      addMealItem: (planId, dayId, mealId, optionId, name, grams) =>
+      addMealItem: (planId, week, dayId, mealId, optionId, name, grams) =>
         set((s) => ({
-          db: mapMeals(s.db, planId, dayId, (meals) =>
+          db: mapMeals(s.db, planId, week, dayId, (meals) =>
             set2(meals, (m) => m.id === mealId, (m) => ({
               ...m,
               options: set2(m.options, (o) => o.id === optionId, (o) => ({ ...o, items: [...o.items, { id: uid(), name, grams }] })),
@@ -445,9 +458,9 @@ export const useStore = create<State>()(
           ),
         })),
 
-      removeMealItem: (planId, dayId, mealId, optionId, itemId) =>
+      removeMealItem: (planId, week, dayId, mealId, optionId, itemId) =>
         set((s) => ({
-          db: mapMeals(s.db, planId, dayId, (meals) =>
+          db: mapMeals(s.db, planId, week, dayId, (meals) =>
             set2(meals, (m) => m.id === mealId, (m) => ({
               ...m,
               options: set2(m.options, (o) => o.id === optionId, (o) => ({ ...o, items: o.items.filter((it) => it.id !== itemId) })),
@@ -455,28 +468,20 @@ export const useStore = create<State>()(
           ),
         })),
 
-      // Copia las comidas del día indicado al resto de días de la semana
-      // (clonando ids para que cada día sea editable de forma independiente).
-      copyDayToAll: (planId, dayId) =>
+      // Copia las comidas del día indicado al resto de días (dentro de la semana dada).
+      copyDayToAll: (planId, week, dayId) =>
         set((s) => ({
-          db: {
-            ...s.db,
-            nutritionPlans: set2(s.db.nutritionPlans, (p) => p.id === planId, (p) => {
-              const source = p.days.find((d) => d.id === dayId);
-              if (!source) return p;
-              const clone = (): Meal[] =>
-                source.meals.map((m) => ({
-                  ...m,
-                  id: uid(),
-                  options: m.options.map((o) => ({ ...o, id: uid(), items: o.items.map((it) => ({ ...it, id: uid() })) })),
-                }));
-              return {
-                ...p,
-                updatedAt: Date.now(),
-                days: p.days.map((d) => (d.id === dayId ? d : { ...d, meals: clone() })),
-              };
-            }),
-          },
+          db: editNutritionWeek(s.db, planId, week, (w) => {
+            const source = w.days.find((d) => d.id === dayId);
+            if (!source) return w;
+            const clone = (): Meal[] =>
+              source.meals.map((m) => ({
+                ...m,
+                id: uid(),
+                options: m.options.map((o) => ({ ...o, id: uid(), items: o.items.map((it) => ({ ...it, id: uid() })) })),
+              }));
+            return { ...w, days: w.days.map((d) => (d.id === dayId ? d : { ...d, meals: clone() })) };
+          }),
         })),
 
       sendMessage: (fromId, toId, text) =>
@@ -715,6 +720,7 @@ export const useStore = create<State>()(
                 carbs: t.carbs,
                 fat: t.fat,
                 days: cloneNutritionDays(t.days),
+                weekData: undefined,
                 updatedAt: Date.now(),
               })),
             },
