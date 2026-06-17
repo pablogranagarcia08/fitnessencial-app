@@ -2,8 +2,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { Card, IconButton, Row, Txt } from '@/components/ui';
-import { usePlanTasks, useStore } from '@/lib/db/store';
+import { useNutritionPlan, usePlanTasks, useStore, useWorkoutPlan } from '@/lib/db/store';
 import type { PlanTask, PlanTaskType } from '@/lib/db/types';
+import { buildScheduleTasks } from '@/lib/plan/generate';
 import {
   addMonths, DAY, dayLabel, fullDateLabel, monthGrid, monthLabel, shortDateLabel, startOfDay, startOfMonth,
   TASK_META, TASK_ORDER, weekDays, weekRangeLabel, WEEKDAY_LABELS,
@@ -13,8 +14,20 @@ import { colors, font, radius, space } from '@/lib/theme';
 type ViewMode = 'month' | 'week' | 'day';
 
 export function PlanningView({ clientId, mode }: { clientId: string; mode: 'client' | 'trainer' }) {
-  const tasks = usePlanTasks(clientId);
+  const stored = usePlanTasks(clientId);
+  const workout = useWorkoutPlan(clientId);
+  const nutrition = useNutritionPlan(clientId);
   const { togglePlanTask, addPlanTask, removePlanTask, updatePlanTask } = useStore();
+
+  // Si no hay tareas guardadas pero el cliente tiene plan, derivamos el calendario
+  // de su plan (nutrición a diario + entrenos en sus días) para que nunca salga vacío.
+  const tasks = useMemo(() => {
+    if (stored.length) return stored;
+    if (!workout && !nutrition) return [];
+    const weeks = workout?.weeks ?? nutrition?.weeks ?? 12;
+    const wk = workout ?? { id: '', clientId, name: '', days: [], updatedAt: 0 };
+    return buildScheduleTasks(clientId, wk, startOfDay(Date.now()), weeks);
+  }, [stored, workout, nutrition, clientId]);
   const [view, setView] = useState<ViewMode>('month');
   const [anchor, setAnchor] = useState(() => startOfDay(Date.now()));
   const [modalDay, setModalDay] = useState<number | null>(null);
