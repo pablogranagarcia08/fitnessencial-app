@@ -331,13 +331,14 @@ export const useStore = create<State>()(
           if (!r) return { db: s.db };
           // Plan completo → todos sus días; sesión suelta → un único día (lunes).
           const days = r.days ? cloneDays(r.days) : [{ id: uid(), name: r.name, weekday: 'mon' as Weekday, exercises: cloneExercises(r.exercises ?? []) }];
+          const plan: WorkoutPlan = { id: uid(), clientId, name: r.name, status: 'draft', weeks: 12, updatedAt: Date.now(), days };
+          // Programa la rutina en el calendario para las 12 semanas.
+          const schedule = buildScheduleTasks(clientId, plan, Date.now());
           return {
             db: {
               ...s.db,
-              workoutPlans: [
-                ...s.db.workoutPlans.filter((p) => p.clientId !== clientId),
-                { id: uid(), clientId, name: r.name, status: 'draft', weeks: 12, updatedAt: Date.now(), days },
-              ],
+              workoutPlans: [...s.db.workoutPlans.filter((p) => p.clientId !== clientId), plan],
+              planTasks: [...(s.db.planTasks ?? []).filter((t) => t.clientId !== clientId), ...schedule],
             },
           };
         }),

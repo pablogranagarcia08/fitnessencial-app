@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { Card, IconButton, Row, Txt } from '@/components/ui';
-import { useNutritionPlan, usePlanTasks, useStore, useWorkoutPlan } from '@/lib/db/store';
+import { useNutritionPlan, usePlanTasks, useRoutines, useStore, useWorkoutPlan } from '@/lib/db/store';
 import type { PlanTask, PlanTaskType } from '@/lib/db/types';
 import { buildScheduleTasks } from '@/lib/plan/generate';
 import {
@@ -245,6 +245,7 @@ function AddTaskScreen({ day, editing, onBack, onSubmit }: {
   const [title, setTitle] = useState(editing?.title ?? '');
   const [time, setTime] = useState(editing?.time ?? '');
   const [body, setBody] = useState(editing?.body ?? '');
+  const routines = useRoutines(); // rutinas guardadas para elegir en tareas de entreno
 
   const d = new Date(day);
   const fecha = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
@@ -318,7 +319,24 @@ function AddTaskScreen({ day, editing, onBack, onSubmit }: {
                       </Row>
                     </>
                   ) : (
-                    <TextInput value={title} onChangeText={setTitle} placeholder={`Nombre · ${meta.label}`} placeholderTextColor={colors.mute} style={st.addInput} />
+                    <>
+                      {ty === 'workout' && routines.length > 0 && (
+                        <View style={{ gap: 6 }}>
+                          <Txt variant="mute" style={{ fontSize: 12 }}>Elige una rutina guardada:</Txt>
+                          <Row style={{ flexWrap: 'wrap', gap: 6 }}>
+                            {routines.map((r) => {
+                              const on = title === r.name;
+                              return (
+                                <Pressable key={r.id} onPress={() => setTitle(r.name)} style={[st.typePill, on && { backgroundColor: TASK_META.workout.color, borderColor: TASK_META.workout.color }]}>
+                                  <Txt style={{ fontSize: 12, fontWeight: font.semibold, color: on ? colors.bg : colors.inkSoft }}>{r.name}</Txt>
+                                </Pressable>
+                              );
+                            })}
+                          </Row>
+                        </View>
+                      )}
+                      <TextInput value={title} onChangeText={setTitle} placeholder={`Nombre · ${meta.label}`} placeholderTextColor={colors.mute} style={st.addInput} />
+                    </>
                   )}
                   <Pressable onPress={() => submit(ty)} style={[st.addNewBtn, { marginTop: 0 }]}>
                     <Txt style={{ color: colors.bg, fontWeight: font.bold, fontSize: 15 }}>{editing ? 'Guardar' : 'Añadir'}</Txt>
