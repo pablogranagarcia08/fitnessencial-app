@@ -225,6 +225,12 @@ export function makeSeed(): DB {
         ],
       },
     ],
+
+    // Biblioteca de planes de nutrición reutilizables de Kike.
+    nutritionTemplates: [
+      { id: 'nt-def', trainerId: 'trainer-kike', name: 'Definición · 1800 kcal', dailyKcal: 1800, protein: 140, carbs: 160, fat: 55, days: buildNutritionDays(66) },
+      { id: 'nt-vol', trainerId: 'trainer-kike', name: 'Volumen · 2900 kcal', dailyKcal: 2900, protein: 200, carbs: 330, fat: 80, days: buildNutritionDays(85) },
+    ],
   };
 
   // Adjunta el vídeo de explicación a cada ejercicio que tenga uno disponible.

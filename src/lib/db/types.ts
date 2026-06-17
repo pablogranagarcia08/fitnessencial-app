@@ -74,6 +74,18 @@ export interface RoutineTemplate {
   days?: WorkoutDay[]; // plantilla de plan completo (semana entera)
 }
 
+// Plan de nutrición guardado por el entrenador para reutilizar (biblioteca).
+export interface NutritionTemplate {
+  id: string;
+  trainerId: string;
+  name: string;
+  dailyKcal: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  days: NutritionDay[];
+}
+
 // 'draft' = borrador pendiente de que el entrenador lo revise y envíe.
 // 'active' (o sin estado) = ya enviado al cliente, visible para él.
 export type PlanStatus = 'draft' | 'active';
@@ -197,4 +209,5 @@ export interface DB {
   reminders: Reminder[];
   planTasks: PlanTask[];
   routines: RoutineTemplate[];
+  nutritionTemplates: NutritionTemplate[];
 }

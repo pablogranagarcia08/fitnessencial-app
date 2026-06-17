@@ -6,7 +6,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { planEngine, type PlanInput } from '../plan/engine';
 import { buildScheduleTasks } from '../plan/generate';
 import { makeSeed } from './seed';
-import type { ClientProfile, ClientStatus, DB, Exercise, Meal, MealOption, NutritionDay, NutritionPlan, PlanTask, PlanTaskType, ProgressEntry, RoutineTemplate, SetLog, User, Weekday, WorkoutDay, WorkoutPlan } from './types';
+import type { ClientProfile, ClientStatus, DB, Exercise, Meal, MealOption, NutritionDay, NutritionPlan, NutritionTemplate, PlanTask, PlanTaskType, ProgressEntry, RoutineTemplate, SetLog, User, Weekday, WorkoutDay, WorkoutPlan } from './types';
 import { WEEKDAYS } from './types';
 
 // Adherencia: % de series marcadas como hechas sobre las prescritas en el plan.
@@ -57,6 +57,13 @@ interface State {
   applyRoutine: (planId: string, dayId: string, routineId: string) => void; // carga en una sesión existente
   addRoutineAsDay: (planId: string, weekday: Weekday, routineId: string) => void; // crea sesión desde plantilla
   applyFullRoutine: (planId: string, routineId: string) => void; // reemplaza todo el plan con una plantilla
+  createWorkoutFromRoutine: (clientId: string, routineId: string) => void; // crea el plan desde una plantilla (sin plan previo)
+
+  // biblioteca de planes de nutrición reutilizables (entrenador)
+  saveNutritionTemplate: (data: { name: string; dailyKcal: number; protein: number; carbs: number; fat: number; days: NutritionDay[] }) => void;
+  removeNutritionTemplate: (id: string) => void;
+  applyNutritionTemplate: (planId: string, templateId: string) => void; // reemplaza el plan actual
+  createNutritionFromTemplate: (clientId: string, templateId: string) => void; // crea el plan desde plantilla
 
   // nutrición (dieta por día de la semana; cada comida tiene varias opciones)
   updateNutrition: (planId: string, patch: Partial<NutritionPlan>) => void;
@@ -104,6 +111,19 @@ const cloneExercises = (exercises: Exercise[]): Exercise[] =>
 // Clona los días de un plan completo (ids nuevos, conserva día de la semana).
 const cloneDays = (days: WorkoutDay[]): WorkoutDay[] =>
   days.map((d) => ({ id: uid(), name: d.name, weekday: d.weekday, exercises: cloneExercises(d.exercises) }));
+
+// Clona los días de una dieta (ids nuevos en días, comidas, opciones e ingredientes).
+const cloneNutritionDays = (days: NutritionDay[]): NutritionDay[] =>
+  days.map((d) => ({
+    id: uid(),
+    weekday: d.weekday,
+    meals: d.meals.map((m) => ({
+      id: uid(),
+      name: m.name,
+      time: m.time,
+      options: m.options.map((o) => ({ id: uid(), name: o.name, photoUri: o.photoUri, items: o.items.map((it) => ({ id: uid(), name: it.name, grams: it.grams })) })),
+    })),
+  }));
 
 // 7 días vacíos (lunes→domingo) para un plan de nutrición nuevo.
 const emptyNutritionDays = (): NutritionDay[] =>
@@ -301,6 +321,23 @@ export const useStore = create<State>()(
                 updatedAt: Date.now(),
                 days: cloneDays(routine.days!),
               })),
+            },
+          };
+        }),
+
+      createWorkoutFromRoutine: (clientId, routineId) =>
+        set((s) => {
+          const r = (s.db.routines ?? []).find((x) => x.id === routineId);
+          if (!r) return { db: s.db };
+          // Plan completo → todos sus días; sesión suelta → un único día (lunes).
+          const days = r.days ? cloneDays(r.days) : [{ id: uid(), name: r.name, weekday: 'mon' as Weekday, exercises: cloneExercises(r.exercises ?? []) }];
+          return {
+            db: {
+              ...s.db,
+              workoutPlans: [
+                ...s.db.workoutPlans.filter((p) => p.clientId !== clientId),
+                { id: uid(), clientId, name: r.name, status: 'draft', weeks: 12, updatedAt: Date.now(), days },
+              ],
             },
           };
         }),
@@ -634,6 +671,55 @@ export const useStore = create<State>()(
           },
         })),
 
+      saveNutritionTemplate: ({ name, dailyKcal, protein, carbs, fat, days }) =>
+        set((s) => ({
+          db: {
+            ...s.db,
+            nutritionTemplates: [
+              ...(s.db.nutritionTemplates ?? []),
+              { id: uid(), trainerId: s.sessionUserId ?? 'trainer-kike', name: name.trim() || 'Plan de nutrición', dailyKcal, protein, carbs, fat, days: cloneNutritionDays(days) },
+            ],
+          },
+        })),
+
+      removeNutritionTemplate: (id) =>
+        set((s) => ({ db: { ...s.db, nutritionTemplates: (s.db.nutritionTemplates ?? []).filter((t) => t.id !== id) } })),
+
+      applyNutritionTemplate: (planId, templateId) =>
+        set((s) => {
+          const t = (s.db.nutritionTemplates ?? []).find((x) => x.id === templateId);
+          if (!t) return { db: s.db };
+          return {
+            db: {
+              ...s.db,
+              nutritionPlans: set2(s.db.nutritionPlans, (p) => p.id === planId, (p) => ({
+                ...p,
+                dailyKcal: t.dailyKcal,
+                protein: t.protein,
+                carbs: t.carbs,
+                fat: t.fat,
+                days: cloneNutritionDays(t.days),
+                updatedAt: Date.now(),
+              })),
+            },
+          };
+        }),
+
+      createNutritionFromTemplate: (clientId, templateId) =>
+        set((s) => {
+          const t = (s.db.nutritionTemplates ?? []).find((x) => x.id === templateId);
+          if (!t) return { db: s.db };
+          return {
+            db: {
+              ...s.db,
+              nutritionPlans: [
+                ...s.db.nutritionPlans.filter((p) => p.clientId !== clientId),
+                { id: uid(), clientId, dailyKcal: t.dailyKcal, protein: t.protein, carbs: t.carbs, fat: t.fat, days: cloneNutritionDays(t.days), weeks: 12, status: 'draft', updatedAt: Date.now() },
+              ],
+            },
+          };
+        }),
+
       // El entrenador envía el borrador al cliente: lo marca activo y le avisa por chat.
       publishPlan: (clientId) =>
         set((s) => {
@@ -666,7 +752,7 @@ export const useStore = create<State>()(
     {
       // Sube la versión cuando cambian los datos semilla (p. ej. vídeos) para que
       // los dispositivos refresquen la demo en vez de quedarse con datos viejos.
-      name: 'fitnessencial-db-v12',
+      name: 'fitnessencial-db-v13',
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (s) => ({ db: s.db, sessionUserId: s.sessionUserId }),
     }
@@ -723,6 +809,12 @@ export const useProgressOf = (clientId?: string) =>
 export const useRoutines = (trainerId?: string): RoutineTemplate[] =>
   useStore(
     useShallow((s) => (s.db.routines ?? []).filter((r) => !trainerId || r.trainerId === trainerId))
+  );
+
+// Planes de nutrición guardados por el entrenador (biblioteca reutilizable).
+export const useNutritionTemplates = (trainerId?: string): NutritionTemplate[] =>
+  useStore(
+    useShallow((s) => (s.db.nutritionTemplates ?? []).filter((t) => !trainerId || t.trainerId === trainerId))
   );
 
 // Tareas de la planificación (calendario) de un cliente, ordenadas por fecha.

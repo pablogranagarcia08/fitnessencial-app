@@ -15,12 +15,12 @@ const todayWeekday = (): Weekday => (['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 
 
 export function WorkoutView({ clientId, mode }: { clientId: string; mode: 'client' | 'trainer' }) {
   const plan = useWorkoutPlan(clientId);
-  const { logSet, updateExercise, addExercise, removeExercise, addWorkoutDayFor, updateWorkoutDay, removeWorkoutDay, resetDayProgress, createWorkoutPlan, saveRoutine, saveFullRoutine, removeRoutine, applyRoutine, addRoutineAsDay, applyFullRoutine } = useStore();
+  const { logSet, updateExercise, addExercise, removeExercise, addWorkoutDayFor, updateWorkoutDay, removeWorkoutDay, resetDayProgress, createWorkoutPlan, saveRoutine, saveFullRoutine, removeRoutine, applyRoutine, addRoutineAsDay, applyFullRoutine, createWorkoutFromRoutine } = useStore();
   const routines = useRoutines();
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [selected, setSelected] = useState<Weekday>(todayWeekday());
   // Biblioteca: dónde cargar la rutina elegida (sesión existente, día nuevo o plan entero).
-  const [pick, setPick] = useState<{ target: 'day'; dayId: string } | { target: 'newday'; weekday: Weekday } | { target: 'plan' } | null>(null);
+  const [pick, setPick] = useState<{ target: 'day'; dayId: string } | { target: 'newday'; weekday: Weekday } | { target: 'plan' } | { target: 'create' } | null>(null);
   // Guardar como rutina: una sesión concreta o el plan completo.
   const [saveModal, setSaveModal] = useState<{ kind: 'session'; day: WorkoutDay } | { kind: 'full' } | null>(null);
 
@@ -35,7 +35,18 @@ export function WorkoutView({ clientId, mode }: { clientId: string; mode: 'clien
       <View style={{ gap: space.md }}>
         <EmptyState icon="barbell-outline" text="Aún no hay rutina asignada." />
         {mode === 'trainer' && (
-          <Button title="Crear plan de entreno" icon="add" onPress={() => createWorkoutPlan(clientId)} />
+          <>
+            <Button title="Cargar rutina guardada" icon="albums-outline" onPress={() => setPick({ target: 'create' })} />
+            <Button title="Crear plan vacío" variant="ghost" icon="add" onPress={() => createWorkoutPlan(clientId)} />
+            <RoutinePicker
+              visible={!!pick}
+              kind="all"
+              routines={routines}
+              onClose={() => setPick(null)}
+              onPick={(rid) => { createWorkoutFromRoutine(clientId, rid); setPick(null); }}
+              onDelete={removeRoutine}
+            />
+          </>
         )}
       </View>
     );
@@ -213,13 +224,13 @@ const routineCount = (r: RoutineTemplate) =>
 // Modal: elegir una rutina guardada de la biblioteca (filtrada por tipo).
 function RoutinePicker({ visible, kind, routines, onClose, onPick, onDelete }: {
   visible: boolean;
-  kind: 'session' | 'full';
+  kind: 'session' | 'full' | 'all';
   routines: RoutineTemplate[];
   onClose: () => void;
   onPick: (id: string) => void;
   onDelete: (id: string) => void;
 }) {
-  const list = routines.filter((r) => (kind === 'full' ? !!r.days : !r.days));
+  const list = routines.filter((r) => (kind === 'all' ? true : kind === 'full' ? !!r.days : !r.days));
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={st.backdrop} onPress={onClose}>

@@ -1,9 +1,10 @@
+import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useState } from 'react';
-import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { Button, Card, EmptyState, IconButton, Row, SectionTitle, Txt } from '@/components/ui';
-import { useNutritionPlan, useStore } from '@/lib/db/store';
-import { WEEKDAYS, type MealOption, type Weekday } from '@/lib/db/types';
+import { useNutritionPlan, useNutritionTemplates, useStore } from '@/lib/db/store';
+import { WEEKDAYS, type MealOption, type NutritionTemplate, type Weekday } from '@/lib/db/types';
 import { DEFAULT_FOOD_PHOTO } from '@/lib/foodPhotos';
 import { colors, font, radius, space } from '@/lib/theme';
 
@@ -15,15 +16,29 @@ export function NutritionView({ clientId, mode }: { clientId: string; mode: 'cli
   const {
     updateNutrition, addMeal, removeMeal, addMealOption, removeMealOption,
     addMealItem, removeMealItem, copyDayToAll, createNutritionPlan,
+    saveNutritionTemplate, removeNutritionTemplate, applyNutritionTemplate, createNutritionFromTemplate,
   } = useStore();
+  const templates = useNutritionTemplates();
   const [selected, setSelected] = useState<Weekday>(todayWeekday());
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [saveOpen, setSaveOpen] = useState(false);
 
   if (!plan) {
     return (
       <View style={{ gap: space.md }}>
         <EmptyState icon="nutrition-outline" text="Aún no hay plan de nutrición." />
         {mode === 'trainer' && (
-          <Button title="Crear plan de nutrición" icon="add" onPress={() => createNutritionPlan(clientId)} />
+          <>
+            <Button title="Cargar plan guardado" icon="albums-outline" onPress={() => setPickerOpen(true)} />
+            <Button title="Crear plan vacío" variant="ghost" icon="add" onPress={() => createNutritionPlan(clientId)} />
+            <NutritionTemplatePicker
+              visible={pickerOpen}
+              templates={templates}
+              onClose={() => setPickerOpen(false)}
+              onPick={(tid) => { createNutritionFromTemplate(clientId, tid); setPickerOpen(false); }}
+              onDelete={removeNutritionTemplate}
+            />
+          </>
         )}
       </View>
     );
@@ -47,6 +62,13 @@ export function NutritionView({ clientId, mode }: { clientId: string; mode: 'cli
           <Macro label="Grasas" value={plan.fat} unit="g" editable={editable} onChange={(n) => updateNutrition(plan.id, { fat: n })} />
         </Row>
       </Card>
+
+      {editable && (
+        <Row style={{ gap: 8 }}>
+          <Button title="Guardar plan" variant="ghost" icon="bookmark-outline" small onPress={() => setSaveOpen(true)} />
+          <Button title="Cargar plan guardado" variant="ghost" icon="albums-outline" small onPress={() => setPickerOpen(true)} />
+        </Row>
+      )}
 
       {/* Selector de día de la semana */}
       <View style={{ flexDirection: 'row', gap: 8 }}>
@@ -103,6 +125,19 @@ export function NutritionView({ clientId, mode }: { clientId: string; mode: 'cli
       )}
 
       {editable && day && <Button title="Añadir comida" variant="ghost" icon="add" onPress={() => addMeal(plan.id, day.id)} />}
+
+      <NutritionTemplatePicker
+        visible={pickerOpen}
+        templates={templates}
+        onClose={() => setPickerOpen(false)}
+        onPick={(tid) => { applyNutritionTemplate(plan.id, tid); setPickerOpen(false); }}
+        onDelete={removeNutritionTemplate}
+      />
+      <SaveNutritionModal
+        visible={saveOpen}
+        onClose={() => setSaveOpen(false)}
+        onSave={(name) => { saveNutritionTemplate({ name, dailyKcal: plan.dailyKcal, protein: plan.protein, carbs: plan.carbs, fat: plan.fat, days: plan.days }); setSaveOpen(false); }}
+      />
     </View>
   );
 }
@@ -148,6 +183,71 @@ function OptionCard({ option, index, editable, onRemove, onAddItem, onRemoveItem
     </Card>
   );
 }
+
+// Modal: elegir un plan de nutrición guardado de la biblioteca.
+function NutritionTemplatePicker({ visible, templates, onClose, onPick, onDelete }: {
+  visible: boolean;
+  templates: NutritionTemplate[];
+  onClose: () => void;
+  onPick: (id: string) => void;
+  onDelete: (id: string) => void;
+}) {
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <Pressable style={mst.backdrop} onPress={onClose}>
+        <Pressable style={mst.modalCard} onPress={(e) => e.stopPropagation()}>
+          <Row style={{ justifyContent: 'space-between' }}>
+            <Txt variant="title" style={{ fontSize: 19 }}>Planes de nutrición</Txt>
+            <IconButton icon="close" color={colors.mute} onPress={onClose} />
+          </Row>
+          {templates.length === 0 ? (
+            <Txt variant="mute" style={{ paddingVertical: space.md }}>Aún no has guardado ningún plan. Crea uno y pulsa “Guardar plan”.</Txt>
+          ) : (
+            templates.map((t) => (
+              <Row key={t.id} style={{ gap: 8 }}>
+                <Pressable onPress={() => onPick(t.id)} style={({ pressed }) => [mst.item, pressed && { opacity: 0.7 }]}>
+                  <View style={{ flex: 1 }}>
+                    <Txt variant="subtitle" style={{ fontSize: 15 }}>{t.name}</Txt>
+                    <Txt variant="mute" style={{ fontSize: 12 }}>{t.dailyKcal} kcal · {t.protein}P / {t.carbs}C / {t.fat}G</Txt>
+                  </View>
+                  <Ionicons name="download-outline" size={20} color={colors.accent} />
+                </Pressable>
+                <IconButton icon="trash-outline" color={colors.danger} size={18} onPress={() => onDelete(t.id)} />
+              </Row>
+            ))
+          )}
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+
+// Modal: nombrar y guardar el plan de nutrición actual en la biblioteca.
+function SaveNutritionModal({ visible, onClose, onSave }: { visible: boolean; onClose: () => void; onSave: (name: string) => void }) {
+  const [name, setName] = useState('');
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <Pressable style={mst.backdrop} onPress={onClose}>
+        <Pressable style={mst.modalCard} onPress={(e) => e.stopPropagation()}>
+          <Row style={{ justifyContent: 'space-between' }}>
+            <Txt variant="title" style={{ fontSize: 19 }}>Guardar plan de nutrición</Txt>
+            <IconButton icon="close" color={colors.mute} onPress={onClose} />
+          </Row>
+          <Txt variant="mute">Guárdalo en tu biblioteca para reutilizarlo con cualquier cliente.</Txt>
+          <TextInput value={name} onChangeText={setName} placeholder="Nombre del plan" placeholderTextColor={colors.mute} style={mst.input} />
+          <Button title="Guardar en biblioteca" icon="bookmark" onPress={() => onSave(name.trim() || 'Plan de nutrición')} />
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+
+const mst = StyleSheet.create({
+  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center', padding: space.lg },
+  modalCard: { width: '100%', maxWidth: 460, backgroundColor: colors.card, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.line, padding: space.lg, gap: space.sm },
+  item: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.bg2, borderRadius: radius.md, borderWidth: 1, borderColor: colors.line, paddingHorizontal: space.md, paddingVertical: 12 },
+  input: { backgroundColor: colors.bg2, borderRadius: radius.sm, borderWidth: 1, borderColor: colors.line, paddingHorizontal: 12, paddingVertical: 11, color: colors.ink, fontSize: 15 },
+});
 
 function Macro({ label, value, unit, big, editable, onChange }: { label: string; value: number; unit?: string; big?: boolean; editable: boolean; onChange: (n: number) => void }) {
   return (
