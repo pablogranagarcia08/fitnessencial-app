@@ -7,7 +7,7 @@ import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, Card, Field, Header, Row, SectionTitle, Txt } from '@/components/ui';
 import { useSession, useStore } from '@/lib/db/store';
-import type { Activity, Experience, GoalType, Sex } from '@/lib/db/types';
+import { WEEKDAYS, type Activity, type Experience, type GoalType, type Sex, type Weekday } from '@/lib/db/types';
 import { colors, font, radius, space } from '@/lib/theme';
 
 const SEX: { k: Sex; label: string }[] = [{ k: 'm', label: 'Hombre' }, { k: 'f', label: 'Mujer' }];
@@ -27,7 +27,6 @@ const GOAL: { k: GoalType; label: string }[] = [
   { k: 'muscle', label: 'Ganar músculo' },
   { k: 'maintain', label: 'Mantenerme' },
 ];
-const DAYS = [2, 3, 4, 5, 6];
 
 export default function Onboarding() {
   const me = useSession();
@@ -39,7 +38,7 @@ export default function Onboarding() {
   const [sex, setSex] = useState<Sex | undefined>(me?.profile?.sex);
   const [activity, setActivity] = useState<Activity | undefined>(me?.profile?.activity);
   const [experience, setExperience] = useState<Experience | undefined>(me?.profile?.experience);
-  const [days, setDays] = useState<number | undefined>(me?.profile?.daysPerWeek);
+  const [trainingDays, setTrainingDays] = useState<Weekday[]>(me?.profile?.trainingDays ?? []);
   const [goalType, setGoalType] = useState<GoalType | undefined>(me?.profile?.goalType);
   const [photos, setPhotos] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
@@ -55,13 +54,13 @@ export default function Onboarding() {
     const w = Number(weight.replace(',', '.'));
     const h = Number(height);
     const a = Number(age);
-    if (!w || !h || !a || !sex || !activity || !experience || !days || !goalType) {
-      Alert.alert('Faltan datos', 'Completa todos los campos para generar tu plan.');
+    if (!w || !h || !a || !sex || !activity || !experience || trainingDays.length < 2 || !goalType) {
+      Alert.alert('Faltan datos', 'Completa todos los campos y elige al menos 2 días de entreno.');
       return;
     }
     setLoading(true);
     try {
-      setProfile(me.id, { heightCm: h, age: a, sex, activity, experience, daysPerWeek: days, goalType });
+      setProfile(me.id, { heightCm: h, age: a, sex, activity, experience, daysPerWeek: trainingDays.length, trainingDays, goalType });
       // Guarda el peso + fotos de estado como registro de progreso.
       addProgress({ clientId: me.id, date: Date.now(), weightKg: w, photoUri: photos[0] });
       photos.slice(1).forEach((uri) => addProgress({ clientId: me.id, date: Date.now(), weightKg: w, photoUri: uri }));
@@ -107,7 +106,28 @@ export default function Onboarding() {
         <Chips label="SEXO" options={SEX.map((x) => ({ k: x.k, label: x.label }))} value={sex} onChange={setSex} />
         <Chips label="NIVEL DE ACTIVIDAD DIARIA" options={ACTIVITY.map((x) => ({ k: x.k, label: x.label }))} value={activity} onChange={setActivity} />
         <Chips label="EXPERIENCIA ENTRENANDO" options={EXPERIENCE.map((x) => ({ k: x.k, label: x.label }))} value={experience} onChange={setExperience} />
-        <Chips label="DÍAS POR SEMANA" options={DAYS.map((d) => ({ k: d, label: String(d) }))} value={days} onChange={setDays} />
+
+        <View style={{ gap: 8 }}>
+          <Txt variant="label">¿QUÉ DÍAS QUIERES ENTRENAR?</Txt>
+          <Row style={{ gap: 8 }}>
+            {WEEKDAYS.map((w) => {
+              const active = trainingDays.includes(w.key);
+              return (
+                <Pressable
+                  key={w.key}
+                  onPress={() => setTrainingDays((prev) => (active ? prev.filter((d) => d !== w.key) : [...prev, w.key]))}
+                  style={[st.dayPick, active && st.dayPickActive]}
+                >
+                  <Txt style={{ color: active ? colors.bg : colors.inkSoft, fontWeight: font.bold, fontSize: 14 }}>{w.short}</Txt>
+                </Pressable>
+              );
+            })}
+          </Row>
+          <Txt variant="mute" style={{ fontSize: 12 }}>
+            {trainingDays.length >= 2 ? `${trainingDays.length} días/semana · tu plan se hará para estos días.` : 'Elige al menos 2 días.'}
+          </Txt>
+        </View>
+
         <Chips label="TU OBJETIVO" options={GOAL.map((x) => ({ k: x.k, label: x.label }))} value={goalType} onChange={setGoalType} />
 
         <SectionTitle>Fotos de tu estado actual</SectionTitle>
@@ -152,6 +172,8 @@ function Chips<T extends string | number>({ label, options, value, onChange }: {
 const st = StyleSheet.create({
   chip: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.card },
   chipActive: { backgroundColor: colors.accent, borderColor: colors.accent },
+  dayPick: { flex: 1, paddingVertical: 12, borderRadius: radius.sm, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.card, alignItems: 'center' },
+  dayPickActive: { backgroundColor: colors.accent, borderColor: colors.accent },
   photo: { width: 88, height: 110, borderRadius: radius.sm },
   addPhoto: { width: 88, height: 110, borderRadius: radius.sm, borderWidth: 1, borderColor: colors.line, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center', gap: 4 },
 });

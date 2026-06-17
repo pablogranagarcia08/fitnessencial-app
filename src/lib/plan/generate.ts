@@ -1,10 +1,13 @@
-import type { Activity, Experience, GoalType, MealOption, NutritionDay, NutritionPlan, Sex, Weekday, WorkoutDay, WorkoutPlan } from '../db/types';
+import type { Activity, Experience, GoalType, MealOption, NutritionDay, NutritionPlan, PlanTask, PlanTaskType, Sex, Weekday, WorkoutDay, WorkoutPlan } from '../db/types';
 import { WEEKDAYS } from '../db/types';
 import { videoFor } from '../exerciseVideos';
 import { foodPhoto } from '../foodPhotos';
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 const round = (n: number, step = 1) => Math.round(n / step) * step;
+
+// Duración por defecto de los bloques que genera Kike.
+export const PLAN_WEEKS = 12;
 
 export interface PlanInput {
   clientId: string;
@@ -15,6 +18,7 @@ export interface PlanInput {
   activity: Activity;
   experience: Experience;
   daysPerWeek: number;
+  trainingDays?: Weekday[]; // días concretos que quiere entrenar el cliente
   goalType: GoalType;
 }
 
@@ -119,6 +123,7 @@ function buildNutrition(input: PlanInput): { plan: NutritionPlan; tdee: number; 
       carbs,
       fat,
       days: buildNutritionDays(kg),
+      weeks: PLAN_WEEKS,
       updatedAt: Date.now(),
       status: 'draft',
     },
@@ -156,6 +161,14 @@ const TRAINING_WEEKDAYS: Record<number, Weekday[]> = {
   6: ['mon', 'tue', 'wed', 'thu', 'fri', 'sat'],
 };
 
+// Días concretos elegidos por el cliente (si los hay) o reparto por defecto.
+const ORDER: Weekday[] = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+function resolveWeekdays(input: PlanInput, count: number): Weekday[] {
+  const chosen = (input.trainingDays ?? []).slice().sort((a, b) => ORDER.indexOf(a) - ORDER.indexOf(b));
+  if (chosen.length) return chosen.slice(0, count);
+  return TRAINING_WEEKDAYS[count] ?? TRAINING_WEEKDAYS[3];
+}
+
 function buildWorkout(input: PlanInput): WorkoutPlan {
   const days = Math.min(6, Math.max(2, input.daysPerWeek || 3));
   const split = SPLITS[days] ?? SPLITS[3];
@@ -163,7 +176,7 @@ function buildWorkout(input: PlanInput): WorkoutPlan {
   const reps = GOAL_REPS[input.goalType];
   // Principiante: menos volumen (4 ejercicios); intermedio/avanzado: más.
   const maxEx = input.experience === 'beg' ? 4 : input.experience === 'int' ? 5 : 6;
-  const weekdays = TRAINING_WEEKDAYS[days] ?? TRAINING_WEEKDAYS[3];
+  const weekdays = resolveWeekdays(input, days);
 
   const workoutDays: WorkoutDay[] = split.map((d, i) => ({
     id: uid(),
@@ -182,8 +195,9 @@ function buildWorkout(input: PlanInput): WorkoutPlan {
   return {
     id: uid(),
     clientId: input.clientId,
-    name: `Plan ${GOAL_NAME[input.goalType]} · ${days} días`,
+    name: `Plan ${GOAL_NAME[input.goalType]} · ${days} días · ${PLAN_WEEKS} semanas`,
     days: workoutDays,
+    weeks: PLAN_WEEKS,
     updatedAt: Date.now(),
     status: 'draft',
   };
@@ -195,10 +209,41 @@ export function generatePlanLocal(input: PlanInput): GeneratedPlan {
   const workout = buildWorkout(input);
   const days = Math.min(6, Math.max(2, input.daysPerWeek || 3));
   const summary =
-    `Calculado para ${input.weightKg} kg · ${input.heightCm} cm · ${input.age} años. ` +
+    `Bloque de ${PLAN_WEEKS} semanas calculado para ${input.weightKg} kg · ${input.heightCm} cm · ${input.age} años. ` +
     `Gasto estimado ≈ ${round(tdee, 10)} kcal/día → objetivo ${GOAL_NAME[input.goalType].toLowerCase()}: ` +
     `${nutrition.dailyKcal} kcal (${nutrition.protein}P / ${nutrition.carbs}C / ${nutrition.fat}G). ` +
     `Rutina de ${days} entrenos/semana.`;
 
   return { nutrition, workout, summary };
+}
+
+// Genera la planificación (calendario) del cliente para N semanas a partir del
+// plan de entreno: nutrición + caminar a diario, entrenos en sus días, y métricas
+// + foto cada lunes. Sustituye lo anterior del cliente.
+export function buildScheduleTasks(clientId: string, workout: WorkoutPlan, startTs: number, weeks = PLAN_WEEKS): PlanTask[] {
+  const DAY = 24 * 60 * 60 * 1000;
+  const start = new Date(startTs);
+  start.setHours(0, 0, 0, 0);
+  const base = start.getTime();
+  const byWeekday = new Map<Weekday, WorkoutDay>();
+  workout.days.forEach((d) => d.weekday && byWeekday.set(d.weekday, d));
+
+  const tasks: PlanTask[] = [];
+  let n = 0;
+  const push = (date: number, type: PlanTaskType, title: string) =>
+    tasks.push({ id: `gen-${clientId}-${n++}`, clientId, date, type, title, done: false });
+
+  for (let offset = 0; offset < weeks * 7; offset++) {
+    const date = base + offset * DAY;
+    const dow = ORDER[(new Date(date).getDay() + 6) % 7];
+    push(date, 'nutrition', 'Nutrición');
+    push(date, 'cardio', 'Caminar 30 min');
+    const session = byWeekday.get(dow);
+    if (session) push(date, 'workout', session.name);
+    if (dow === 'mon') {
+      push(date, 'metric', 'Métricas personales');
+      push(date, 'photo', 'Foto de progreso');
+    }
+  }
+  return tasks;
 }

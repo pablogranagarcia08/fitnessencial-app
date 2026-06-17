@@ -14,6 +14,7 @@ export interface ClientProfile {
   activity?: Activity;
   experience?: Experience;
   daysPerWeek?: number;
+  trainingDays?: Weekday[]; // días concretos de la semana que quiere entrenar
   goalType?: GoalType;
   generatedAt?: number; // cuándo se generó el último plan automático
 }
@@ -64,11 +65,13 @@ export interface WorkoutDay {
 }
 
 // Rutina guardada por el entrenador para reutilizar (biblioteca de plantillas).
+// Puede ser una sesión suelta (exercises) o un plan completo de la semana (days).
 export interface RoutineTemplate {
   id: string;
   trainerId: string;
   name: string;
-  exercises: Exercise[];
+  exercises?: Exercise[]; // plantilla de una sesión (un día)
+  days?: WorkoutDay[]; // plantilla de plan completo (semana entera)
 }
 
 // 'draft' = borrador pendiente de que el entrenador lo revise y envíe.
@@ -80,6 +83,7 @@ export interface WorkoutPlan {
   clientId: string;
   name: string;
   days: WorkoutDay[];
+  weeks?: number; // duración del bloque en semanas (p. ej. 12)
   updatedAt: number;
   status?: PlanStatus;
 }
@@ -134,6 +138,7 @@ export interface NutritionPlan {
   carbs: number; // g
   fat: number; // g
   days: NutritionDay[]; // dieta específica por cada día de la semana
+  weeks?: number; // duración del bloque en semanas (p. ej. 12)
   updatedAt: number;
   status?: PlanStatus;
 }

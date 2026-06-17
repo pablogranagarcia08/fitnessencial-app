@@ -4,7 +4,7 @@ import { Modal, Platform, Pressable, StyleSheet, TextInput, useWindowDimensions,
 import { Button, Card, EmptyState, IconButton, Row, SectionTitle, Txt } from '@/components/ui';
 import { hasVideo, openVideoNative, VideoModal, VideoThumb } from '@/components/VideoPlayer';
 import { useRoutines, useStore, useWorkoutPlan } from '@/lib/db/store';
-import { WEEKDAYS, type Exercise, type Weekday, type WorkoutDay } from '@/lib/db/types';
+import { WEEKDAYS, type Exercise, type RoutineTemplate, type Weekday, type WorkoutDay } from '@/lib/db/types';
 import { colors, font, radius, space } from '@/lib/theme';
 
 // Un ejercicio está hecho cuando todas sus series están marcadas.
@@ -15,13 +15,14 @@ const todayWeekday = (): Weekday => (['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 
 
 export function WorkoutView({ clientId, mode }: { clientId: string; mode: 'client' | 'trainer' }) {
   const plan = useWorkoutPlan(clientId);
-  const { logSet, updateExercise, addExercise, removeExercise, addWorkoutDayFor, updateWorkoutDay, removeWorkoutDay, resetDayProgress, createWorkoutPlan, saveRoutine, removeRoutine, applyRoutine, addRoutineAsDay } = useStore();
+  const { logSet, updateExercise, addExercise, removeExercise, addWorkoutDayFor, updateWorkoutDay, removeWorkoutDay, resetDayProgress, createWorkoutPlan, saveRoutine, saveFullRoutine, removeRoutine, applyRoutine, addRoutineAsDay, applyFullRoutine } = useStore();
   const routines = useRoutines();
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [selected, setSelected] = useState<Weekday>(todayWeekday());
-  // Modal de biblioteca: aplicar a una sesión existente o crear sesión desde plantilla.
-  const [picker, setPicker] = useState<{ mode: 'apply'; dayId: string } | { mode: 'new'; weekday: Weekday } | null>(null);
-  const [saveFor, setSaveFor] = useState<WorkoutDay | null>(null);
+  // Biblioteca: dónde cargar la rutina elegida (sesión existente, día nuevo o plan entero).
+  const [pick, setPick] = useState<{ target: 'day'; dayId: string } | { target: 'newday'; weekday: Weekday } | { target: 'plan' } | null>(null);
+  // Guardar como rutina: una sesión concreta o el plan completo.
+  const [saveModal, setSaveModal] = useState<{ kind: 'session'; day: WorkoutDay } | { kind: 'full' } | null>(null);
 
   // En web reproduce en un modal; en móvil abre YouTube/navegador.
   const playVideo = (url: string) => {
@@ -51,6 +52,13 @@ export function WorkoutView({ clientId, mode }: { clientId: string; mode: 'clien
       <VideoModal url={videoUrl} onClose={() => setVideoUrl(null)} />
       <SectionTitle>{plan.name}</SectionTitle>
 
+      {mode === 'trainer' && (
+        <Row style={{ gap: 8 }}>
+          <Button title="Guardar plan completo" variant="ghost" icon="bookmarks-outline" small onPress={() => setSaveModal({ kind: 'full' })} />
+          <Button title="Cargar plan" variant="ghost" icon="albums-outline" small onPress={() => setPick({ target: 'plan' })} />
+        </Row>
+      )}
+
       {/* Selector de día de la semana */}
       <View style={{ flexDirection: 'row', gap: 8 }}>
         {WEEKDAYS.map((w) => {
@@ -74,7 +82,7 @@ export function WorkoutView({ clientId, mode }: { clientId: string; mode: 'clien
           {mode === 'trainer' && (
             <Row style={{ gap: 8 }}>
               <Button title="Sesión vacía" icon="add" small onPress={() => addWorkoutDayFor(plan.id, selected)} />
-              <Button title="Cargar rutina" variant="ghost" icon="albums-outline" small onPress={() => setPicker({ mode: 'new', weekday: selected })} />
+              <Button title="Cargar rutina" variant="ghost" icon="albums-outline" small onPress={() => setPick({ target: 'newday', weekday: selected })} />
             </Row>
           )}
         </Card>
@@ -161,8 +169,8 @@ export function WorkoutView({ clientId, mode }: { clientId: string; mode: 'clien
             <>
               <Button title="Añadir ejercicio" variant="ghost" icon="add" small onPress={() => addExercise(plan.id, day.id)} />
               <Row style={{ gap: 8 }}>
-                <Button title="Guardar como rutina" variant="ghost" icon="bookmark-outline" small onPress={() => setSaveFor(day)} />
-                <Button title="Cargar rutina" variant="ghost" icon="albums-outline" small onPress={() => setPicker({ mode: 'apply', dayId: day.id })} />
+                <Button title="Guardar como rutina" variant="ghost" icon="bookmark-outline" small onPress={() => setSaveModal({ kind: 'session', day })} />
+                <Button title="Cargar rutina" variant="ghost" icon="albums-outline" small onPress={() => setPick({ target: 'day', dayId: day.id })} />
               </Row>
             </>
           ) : done > 0 ? (
@@ -172,51 +180,67 @@ export function WorkoutView({ clientId, mode }: { clientId: string; mode: 'clien
       )}
 
       <RoutinePicker
-        visible={!!picker}
+        visible={!!pick}
+        kind={pick?.target === 'plan' ? 'full' : 'session'}
         routines={routines}
-        onClose={() => setPicker(null)}
+        onClose={() => setPick(null)}
         onPick={(rid) => {
-          if (!picker) return;
-          if (picker.mode === 'apply') applyRoutine(plan.id, picker.dayId, rid);
-          else addRoutineAsDay(plan.id, picker.weekday, rid);
-          setPicker(null);
+          if (!pick) return;
+          if (pick.target === 'day') applyRoutine(plan.id, pick.dayId, rid);
+          else if (pick.target === 'newday') addRoutineAsDay(plan.id, pick.weekday, rid);
+          else applyFullRoutine(plan.id, rid);
+          setPick(null);
         }}
         onDelete={removeRoutine}
       />
-      <SaveRoutineModal
-        day={saveFor}
-        onClose={() => setSaveFor(null)}
-        onSave={(name) => { if (saveFor) saveRoutine({ name, exercises: saveFor.exercises }); setSaveFor(null); }}
+      <SaveModal
+        modal={saveModal}
+        onClose={() => setSaveModal(null)}
+        onSave={(name) => {
+          if (saveModal?.kind === 'session') saveRoutine({ name, exercises: saveModal.day.exercises });
+          else if (saveModal?.kind === 'full') saveFullRoutine({ name, days: plan.days });
+          setSaveModal(null);
+        }}
       />
     </View>
   );
 }
 
-// Modal: elegir una rutina guardada de la biblioteca (para cargarla).
-function RoutinePicker({ visible, routines, onClose, onPick, onDelete }: {
+// Cuenta de ejercicios de una rutina (sesión o plan completo).
+const routineCount = (r: RoutineTemplate) =>
+  r.days ? r.days.reduce((n, d) => n + d.exercises.length, 0) : (r.exercises?.length ?? 0);
+
+// Modal: elegir una rutina guardada de la biblioteca (filtrada por tipo).
+function RoutinePicker({ visible, kind, routines, onClose, onPick, onDelete }: {
   visible: boolean;
-  routines: { id: string; name: string; exercises: Exercise[] }[];
+  kind: 'session' | 'full';
+  routines: RoutineTemplate[];
   onClose: () => void;
   onPick: (id: string) => void;
   onDelete: (id: string) => void;
 }) {
+  const list = routines.filter((r) => (kind === 'full' ? !!r.days : !r.days));
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={st.backdrop} onPress={onClose}>
         <Pressable style={st.modalCard} onPress={(e) => e.stopPropagation()}>
           <Row style={{ justifyContent: 'space-between' }}>
-            <Txt variant="title" style={{ fontSize: 19 }}>Tus rutinas</Txt>
+            <Txt variant="title" style={{ fontSize: 19 }}>{kind === 'full' ? 'Planes completos' : 'Tus rutinas'}</Txt>
             <IconButton icon="close" color={colors.mute} onPress={onClose} />
           </Row>
-          {routines.length === 0 ? (
-            <Txt variant="mute" style={{ paddingVertical: space.md }}>Aún no has guardado ninguna rutina. Crea una sesión y pulsa “Guardar como rutina”.</Txt>
+          {list.length === 0 ? (
+            <Txt variant="mute" style={{ paddingVertical: space.md }}>
+              {kind === 'full' ? 'Aún no has guardado ningún plan completo. Pulsa “Guardar plan completo”.' : 'Aún no has guardado ninguna rutina. Crea una sesión y pulsa “Guardar como rutina”.'}
+            </Txt>
           ) : (
-            routines.map((r) => (
+            list.map((r) => (
               <Row key={r.id} style={{ gap: 8 }}>
                 <Pressable onPress={() => onPick(r.id)} style={({ pressed }) => [st.routineItem, pressed && { opacity: 0.7 }]}>
                   <View style={{ flex: 1 }}>
                     <Txt variant="subtitle" style={{ fontSize: 15 }}>{r.name}</Txt>
-                    <Txt variant="mute" style={{ fontSize: 12 }}>{r.exercises.length} ejercicios</Txt>
+                    <Txt variant="mute" style={{ fontSize: 12 }}>
+                      {r.days ? `${r.days.length} días · ` : ''}{routineCount(r)} ejercicios
+                    </Txt>
                   </View>
                   <Ionicons name="download-outline" size={20} color={colors.accent} />
                 </Pressable>
@@ -230,27 +254,31 @@ function RoutinePicker({ visible, routines, onClose, onPick, onDelete }: {
   );
 }
 
-// Modal: nombrar y guardar la sesión actual como rutina.
-function SaveRoutineModal({ day, onClose, onSave }: { day: WorkoutDay | null; onClose: () => void; onSave: (name: string) => void }) {
+// Modal: nombrar y guardar una sesión o el plan completo como rutina.
+function SaveModal({ modal, onClose, onSave }: {
+  modal: { kind: 'session'; day: WorkoutDay } | { kind: 'full' } | null;
+  onClose: () => void;
+  onSave: (name: string) => void;
+}) {
   const [name, setName] = useState('');
-  if (!day) return null;
+  if (!modal) return null;
+  const isFull = modal.kind === 'full';
+  const def = isFull ? 'Plan completo' : (modal.day.name || 'Rutina');
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={st.backdrop} onPress={onClose}>
         <Pressable style={st.modalCard} onPress={(e) => e.stopPropagation()}>
           <Row style={{ justifyContent: 'space-between' }}>
-            <Txt variant="title" style={{ fontSize: 19 }}>Guardar rutina</Txt>
+            <Txt variant="title" style={{ fontSize: 19 }}>{isFull ? 'Guardar plan completo' : 'Guardar rutina'}</Txt>
             <IconButton icon="close" color={colors.mute} onPress={onClose} />
           </Row>
-          <Txt variant="mute">Guarda esta sesión ({day.exercises.length} ejercicios) en tu biblioteca para reutilizarla con cualquier cliente.</Txt>
-          <TextInput
-            value={name}
-            onChangeText={setName}
-            placeholder={day.name || 'Nombre de la rutina'}
-            placeholderTextColor={colors.mute}
-            style={st.editInput}
-          />
-          <Button title="Guardar rutina" icon="bookmark" onPress={() => onSave(name.trim() || day.name || 'Rutina')} />
+          <Txt variant="mute">
+            {isFull
+              ? 'Guarda toda la semana de entreno en tu biblioteca para reutilizarla con cualquier cliente.'
+              : `Guarda esta sesión (${modal.day.exercises.length} ejercicios) en tu biblioteca para reutilizarla.`}
+          </Txt>
+          <TextInput value={name} onChangeText={setName} placeholder={def} placeholderTextColor={colors.mute} style={st.editInput} />
+          <Button title="Guardar en biblioteca" icon="bookmark" onPress={() => onSave(name.trim() || def)} />
         </Pressable>
       </Pressable>
     </Modal>

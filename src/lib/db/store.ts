@@ -4,6 +4,7 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { useShallow } from 'zustand/react/shallow';
 import { planEngine, type PlanInput } from '../plan/engine';
+import { buildScheduleTasks } from '../plan/generate';
 import { makeSeed } from './seed';
 import type { ClientProfile, ClientStatus, DB, Exercise, Meal, MealOption, NutritionDay, NutritionPlan, PlanTask, PlanTaskType, ProgressEntry, RoutineTemplate, SetLog, User, Weekday, WorkoutDay, WorkoutPlan } from './types';
 import { WEEKDAYS } from './types';
@@ -50,10 +51,12 @@ interface State {
   resetDayProgress: (planId: string, dayId: string) => void;
 
   // biblioteca de rutinas reutilizables (entrenador)
-  saveRoutine: (data: { name: string; exercises: Exercise[] }) => void;
+  saveRoutine: (data: { name: string; exercises: Exercise[] }) => void; // sesión suelta
+  saveFullRoutine: (data: { name: string; days: WorkoutDay[] }) => void; // plan completo (semana)
   removeRoutine: (id: string) => void;
   applyRoutine: (planId: string, dayId: string, routineId: string) => void; // carga en una sesión existente
   addRoutineAsDay: (planId: string, weekday: Weekday, routineId: string) => void; // crea sesión desde plantilla
+  applyFullRoutine: (planId: string, routineId: string) => void; // reemplaza todo el plan con una plantilla
 
   // nutrición (dieta por día de la semana; cada comida tiene varias opciones)
   updateNutrition: (planId: string, patch: Partial<NutritionPlan>) => void;
@@ -97,6 +100,10 @@ const set2 = <T,>(arr: T[], pred: (x: T) => boolean, fn: (x: T) => T): T[] =>
 // Clona ejercicios para reutilizarlos (ids nuevos, sin progreso del cliente).
 const cloneExercises = (exercises: Exercise[]): Exercise[] =>
   exercises.map((e) => ({ id: uid(), name: e.name, sets: e.sets, reps: e.reps, weightKg: e.weightKg, note: e.note, videoUrl: e.videoUrl, done: false }));
+
+// Clona los días de un plan completo (ids nuevos, conserva día de la semana).
+const cloneDays = (days: WorkoutDay[]): WorkoutDay[] =>
+  days.map((d) => ({ id: uid(), name: d.name, weekday: d.weekday, exercises: cloneExercises(d.exercises) }));
 
 // 7 días vacíos (lunes→domingo) para un plan de nutrición nuevo.
 const emptyNutritionDays = (): NutritionDay[] =>
@@ -268,20 +275,48 @@ export const useStore = create<State>()(
           },
         })),
 
+      saveFullRoutine: ({ name, days }) =>
+        set((s) => ({
+          db: {
+            ...s.db,
+            routines: [
+              ...(s.db.routines ?? []),
+              { id: uid(), trainerId: s.sessionUserId ?? 'trainer-kike', name: name.trim() || 'Plan completo', days: cloneDays(days) },
+            ],
+          },
+        })),
+
       removeRoutine: (id) =>
         set((s) => ({ db: { ...s.db, routines: (s.db.routines ?? []).filter((r) => r.id !== id) } })),
 
-      applyRoutine: (planId, dayId, routineId) =>
+      applyFullRoutine: (planId, routineId) =>
         set((s) => {
           const routine = (s.db.routines ?? []).find((r) => r.id === routineId);
-          if (!routine) return { db: s.db };
+          if (!routine?.days) return { db: s.db };
           return {
             db: {
               ...s.db,
               workoutPlans: set2(s.db.workoutPlans, (p) => p.id === planId, (p) => ({
                 ...p,
                 updatedAt: Date.now(),
-                days: set2(p.days, (d) => d.id === dayId, (d) => ({ ...d, exercises: cloneExercises(routine.exercises) })),
+                days: cloneDays(routine.days!),
+              })),
+            },
+          };
+        }),
+
+      applyRoutine: (planId, dayId, routineId) =>
+        set((s) => {
+          const routine = (s.db.routines ?? []).find((r) => r.id === routineId);
+          const ex = routine?.exercises ?? routine?.days?.flatMap((d) => d.exercises);
+          if (!ex) return { db: s.db };
+          return {
+            db: {
+              ...s.db,
+              workoutPlans: set2(s.db.workoutPlans, (p) => p.id === planId, (p) => ({
+                ...p,
+                updatedAt: Date.now(),
+                days: set2(p.days, (d) => d.id === dayId, (d) => ({ ...d, exercises: cloneExercises(ex) })),
               })),
             },
           };
@@ -290,14 +325,15 @@ export const useStore = create<State>()(
       addRoutineAsDay: (planId, weekday, routineId) =>
         set((s) => {
           const routine = (s.db.routines ?? []).find((r) => r.id === routineId);
-          if (!routine) return { db: s.db };
+          const ex = routine?.exercises ?? routine?.days?.flatMap((d) => d.exercises);
+          if (!routine || !ex) return { db: s.db };
           return {
             db: {
               ...s.db,
               workoutPlans: set2(s.db.workoutPlans, (p) => p.id === planId, (p) => ({
                 ...p,
                 updatedAt: Date.now(),
-                days: [...p.days, { id: uid(), name: routine.name, weekday, exercises: cloneExercises(routine.exercises) }],
+                days: [...p.days, { id: uid(), name: routine.name, weekday, exercises: cloneExercises(ex) }],
               })),
             },
           };
@@ -526,10 +562,13 @@ export const useStore = create<State>()(
           activity: p.activity,
           experience: p.experience,
           daysPerWeek: p.daysPerWeek,
+          trainingDays: p.trainingDays,
           goalType: p.goalType,
         };
 
         const result = await planEngine.generate(input);
+        // Programa el bloque completo (12 semanas) en el calendario del cliente.
+        const schedule = buildScheduleTasks(clientId, result.workout, Date.now());
 
         set((st) => ({
           db: {
@@ -541,6 +580,10 @@ export const useStore = create<State>()(
             nutritionPlans: [
               ...st.db.nutritionPlans.filter((n) => n.clientId !== clientId),
               result.nutrition,
+            ],
+            planTasks: [
+              ...(st.db.planTasks ?? []).filter((t) => t.clientId !== clientId),
+              ...schedule,
             ],
             users: set2(st.db.users, (u) => u.id === clientId, (u) => ({
               ...u,
@@ -623,7 +666,7 @@ export const useStore = create<State>()(
     {
       // Sube la versión cuando cambian los datos semilla (p. ej. vídeos) para que
       // los dispositivos refresquen la demo en vez de quedarse con datos viejos.
-      name: 'fitnessencial-db-v10',
+      name: 'fitnessencial-db-v11',
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (s) => ({ db: s.db, sessionUserId: s.sessionUserId }),
     }

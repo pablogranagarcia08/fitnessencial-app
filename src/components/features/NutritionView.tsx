@@ -36,7 +36,10 @@ export function NutritionView({ clientId, mode }: { clientId: string; mode: 'cli
   return (
     <View style={{ gap: space.md }}>
       <Card>
-        <Txt variant="label">OBJETIVO DIARIO</Txt>
+        <Row style={{ justifyContent: 'space-between' }}>
+          <Txt variant="label">OBJETIVO DIARIO</Txt>
+          {plan.weeks ? <Txt variant="mute" style={{ fontSize: 12 }}>Bloque de {plan.weeks} semanas</Txt> : null}
+        </Row>
         <Row style={{ justifyContent: 'space-between' }}>
           <Macro label="kcal" value={plan.dailyKcal} editable={editable} big onChange={(n) => updateNutrition(plan.id, { dailyKcal: n })} />
           <Macro label="Proteína" value={plan.protein} unit="g" editable={editable} onChange={(n) => updateNutrition(plan.id, { protein: n })} />
