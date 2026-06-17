@@ -63,6 +63,14 @@ export interface WorkoutDay {
   exercises: Exercise[];
 }
 
+// Rutina guardada por el entrenador para reutilizar (biblioteca de plantillas).
+export interface RoutineTemplate {
+  id: string;
+  trainerId: string;
+  name: string;
+  exercises: Exercise[];
+}
+
 // 'draft' = borrador pendiente de que el entrenador lo revise y envíe.
 // 'active' (o sin estado) = ya enviado al cliente, visible para él.
 export type PlanStatus = 'draft' | 'active';
@@ -183,4 +191,5 @@ export interface DB {
   progress: ProgressEntry[];
   reminders: Reminder[];
   planTasks: PlanTask[];
+  routines: RoutineTemplate[];
 }

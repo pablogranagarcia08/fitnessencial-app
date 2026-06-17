@@ -1,10 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
-import { Platform, Pressable, StyleSheet, TextInput, useWindowDimensions, View } from 'react-native';
+import { Modal, Platform, Pressable, StyleSheet, TextInput, useWindowDimensions, View } from 'react-native';
 import { Button, Card, EmptyState, IconButton, Row, SectionTitle, Txt } from '@/components/ui';
 import { hasVideo, openVideoNative, VideoModal, VideoThumb } from '@/components/VideoPlayer';
-import { useStore, useWorkoutPlan } from '@/lib/db/store';
-import { WEEKDAYS, type Exercise, type Weekday } from '@/lib/db/types';
+import { useRoutines, useStore, useWorkoutPlan } from '@/lib/db/store';
+import { WEEKDAYS, type Exercise, type Weekday, type WorkoutDay } from '@/lib/db/types';
 import { colors, font, radius, space } from '@/lib/theme';
 
 // Un ejercicio está hecho cuando todas sus series están marcadas.
@@ -15,9 +15,13 @@ const todayWeekday = (): Weekday => (['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 
 
 export function WorkoutView({ clientId, mode }: { clientId: string; mode: 'client' | 'trainer' }) {
   const plan = useWorkoutPlan(clientId);
-  const { logSet, updateExercise, addExercise, removeExercise, addWorkoutDayFor, updateWorkoutDay, removeWorkoutDay, resetDayProgress, createWorkoutPlan } = useStore();
+  const { logSet, updateExercise, addExercise, removeExercise, addWorkoutDayFor, updateWorkoutDay, removeWorkoutDay, resetDayProgress, createWorkoutPlan, saveRoutine, removeRoutine, applyRoutine, addRoutineAsDay } = useStore();
+  const routines = useRoutines();
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [selected, setSelected] = useState<Weekday>(todayWeekday());
+  // Modal de biblioteca: aplicar a una sesión existente o crear sesión desde plantilla.
+  const [picker, setPicker] = useState<{ mode: 'apply'; dayId: string } | { mode: 'new'; weekday: Weekday } | null>(null);
+  const [saveFor, setSaveFor] = useState<WorkoutDay | null>(null);
 
   // En web reproduce en un modal; en móvil abre YouTube/navegador.
   const playVideo = (url: string) => {
@@ -68,7 +72,10 @@ export function WorkoutView({ clientId, mode }: { clientId: string; mode: 'clien
           <Txt variant="subtitle">{dayLabel} · Descanso</Txt>
           <Txt variant="mute" style={{ textAlign: 'center' }}>No hay entreno programado este día.</Txt>
           {mode === 'trainer' && (
-            <Button title="Añadir sesión" icon="add" small onPress={() => addWorkoutDayFor(plan.id, selected)} />
+            <Row style={{ gap: 8 }}>
+              <Button title="Sesión vacía" icon="add" small onPress={() => addWorkoutDayFor(plan.id, selected)} />
+              <Button title="Cargar rutina" variant="ghost" icon="albums-outline" small onPress={() => setPicker({ mode: 'new', weekday: selected })} />
+            </Row>
           )}
         </Card>
       ) : (
@@ -151,13 +158,102 @@ export function WorkoutView({ clientId, mode }: { clientId: string; mode: 'clien
           {day.exercises.length === 0 && <Txt variant="mute">Sin ejercicios todavía.</Txt>}
 
           {mode === 'trainer' ? (
-            <Button title="Añadir ejercicio" variant="ghost" icon="add" small onPress={() => addExercise(plan.id, day.id)} />
+            <>
+              <Button title="Añadir ejercicio" variant="ghost" icon="add" small onPress={() => addExercise(plan.id, day.id)} />
+              <Row style={{ gap: 8 }}>
+                <Button title="Guardar como rutina" variant="ghost" icon="bookmark-outline" small onPress={() => setSaveFor(day)} />
+                <Button title="Cargar rutina" variant="ghost" icon="albums-outline" small onPress={() => setPicker({ mode: 'apply', dayId: day.id })} />
+              </Row>
+            </>
           ) : done > 0 ? (
             <Button title="Reiniciar día" variant="ghost" icon="refresh" small onPress={() => resetDayProgress(plan.id, day.id)} />
           ) : null}
         </Card>
       )}
+
+      <RoutinePicker
+        visible={!!picker}
+        routines={routines}
+        onClose={() => setPicker(null)}
+        onPick={(rid) => {
+          if (!picker) return;
+          if (picker.mode === 'apply') applyRoutine(plan.id, picker.dayId, rid);
+          else addRoutineAsDay(plan.id, picker.weekday, rid);
+          setPicker(null);
+        }}
+        onDelete={removeRoutine}
+      />
+      <SaveRoutineModal
+        day={saveFor}
+        onClose={() => setSaveFor(null)}
+        onSave={(name) => { if (saveFor) saveRoutine({ name, exercises: saveFor.exercises }); setSaveFor(null); }}
+      />
     </View>
+  );
+}
+
+// Modal: elegir una rutina guardada de la biblioteca (para cargarla).
+function RoutinePicker({ visible, routines, onClose, onPick, onDelete }: {
+  visible: boolean;
+  routines: { id: string; name: string; exercises: Exercise[] }[];
+  onClose: () => void;
+  onPick: (id: string) => void;
+  onDelete: (id: string) => void;
+}) {
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <Pressable style={st.backdrop} onPress={onClose}>
+        <Pressable style={st.modalCard} onPress={(e) => e.stopPropagation()}>
+          <Row style={{ justifyContent: 'space-between' }}>
+            <Txt variant="title" style={{ fontSize: 19 }}>Tus rutinas</Txt>
+            <IconButton icon="close" color={colors.mute} onPress={onClose} />
+          </Row>
+          {routines.length === 0 ? (
+            <Txt variant="mute" style={{ paddingVertical: space.md }}>Aún no has guardado ninguna rutina. Crea una sesión y pulsa “Guardar como rutina”.</Txt>
+          ) : (
+            routines.map((r) => (
+              <Row key={r.id} style={{ gap: 8 }}>
+                <Pressable onPress={() => onPick(r.id)} style={({ pressed }) => [st.routineItem, pressed && { opacity: 0.7 }]}>
+                  <View style={{ flex: 1 }}>
+                    <Txt variant="subtitle" style={{ fontSize: 15 }}>{r.name}</Txt>
+                    <Txt variant="mute" style={{ fontSize: 12 }}>{r.exercises.length} ejercicios</Txt>
+                  </View>
+                  <Ionicons name="download-outline" size={20} color={colors.accent} />
+                </Pressable>
+                <IconButton icon="trash-outline" color={colors.danger} size={18} onPress={() => onDelete(r.id)} />
+              </Row>
+            ))
+          )}
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+
+// Modal: nombrar y guardar la sesión actual como rutina.
+function SaveRoutineModal({ day, onClose, onSave }: { day: WorkoutDay | null; onClose: () => void; onSave: (name: string) => void }) {
+  const [name, setName] = useState('');
+  if (!day) return null;
+  return (
+    <Modal visible transparent animationType="fade" onRequestClose={onClose}>
+      <Pressable style={st.backdrop} onPress={onClose}>
+        <Pressable style={st.modalCard} onPress={(e) => e.stopPropagation()}>
+          <Row style={{ justifyContent: 'space-between' }}>
+            <Txt variant="title" style={{ fontSize: 19 }}>Guardar rutina</Txt>
+            <IconButton icon="close" color={colors.mute} onPress={onClose} />
+          </Row>
+          <Txt variant="mute">Guarda esta sesión ({day.exercises.length} ejercicios) en tu biblioteca para reutilizarla con cualquier cliente.</Txt>
+          <TextInput
+            value={name}
+            onChangeText={setName}
+            placeholder={day.name || 'Nombre de la rutina'}
+            placeholderTextColor={colors.mute}
+            style={st.editInput}
+          />
+          <Button title="Guardar rutina" icon="bookmark" onPress={() => onSave(name.trim() || day.name || 'Rutina')} />
+        </Pressable>
+      </Pressable>
+    </Modal>
   );
 }
 
@@ -309,6 +405,9 @@ function NumField({ value, onChange, label }: { value: number; onChange: (n: num
 }
 
 const st = StyleSheet.create({
+  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center', padding: space.lg },
+  modalCard: { width: '100%', maxWidth: 460, backgroundColor: colors.card, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.line, padding: space.lg, gap: space.sm },
+  routineItem: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.bg2, borderRadius: radius.md, borderWidth: 1, borderColor: colors.line, paddingHorizontal: space.md, paddingVertical: 12 },
   dayTab: { flex: 1, paddingVertical: 9, borderRadius: radius.sm, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.bg2, alignItems: 'center', gap: 4 },
   dayTabActive: { backgroundColor: colors.accent, borderColor: colors.accent },
   dayDot: { width: 5, height: 5, borderRadius: 3 },

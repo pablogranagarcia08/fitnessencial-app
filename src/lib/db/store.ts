@@ -5,7 +5,7 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 import { useShallow } from 'zustand/react/shallow';
 import { planEngine, type PlanInput } from '../plan/engine';
 import { makeSeed } from './seed';
-import type { ClientProfile, ClientStatus, DB, Exercise, Meal, MealOption, NutritionDay, NutritionPlan, PlanTask, PlanTaskType, ProgressEntry, SetLog, User, Weekday, WorkoutDay, WorkoutPlan } from './types';
+import type { ClientProfile, ClientStatus, DB, Exercise, Meal, MealOption, NutritionDay, NutritionPlan, PlanTask, PlanTaskType, ProgressEntry, RoutineTemplate, SetLog, User, Weekday, WorkoutDay, WorkoutPlan } from './types';
 import { WEEKDAYS } from './types';
 
 // Adherencia: % de series marcadas como hechas sobre las prescritas en el plan.
@@ -49,6 +49,12 @@ interface State {
   removeWorkoutDay: (planId: string, dayId: string) => void;
   resetDayProgress: (planId: string, dayId: string) => void;
 
+  // biblioteca de rutinas reutilizables (entrenador)
+  saveRoutine: (data: { name: string; exercises: Exercise[] }) => void;
+  removeRoutine: (id: string) => void;
+  applyRoutine: (planId: string, dayId: string, routineId: string) => void; // carga en una sesión existente
+  addRoutineAsDay: (planId: string, weekday: Weekday, routineId: string) => void; // crea sesión desde plantilla
+
   // nutrición (dieta por día de la semana; cada comida tiene varias opciones)
   updateNutrition: (planId: string, patch: Partial<NutritionPlan>) => void;
   addMeal: (planId: string, dayId: string) => void;
@@ -87,6 +93,10 @@ interface State {
 
 const set2 = <T,>(arr: T[], pred: (x: T) => boolean, fn: (x: T) => T): T[] =>
   arr.map((x) => (pred(x) ? fn(x) : x));
+
+// Clona ejercicios para reutilizarlos (ids nuevos, sin progreso del cliente).
+const cloneExercises = (exercises: Exercise[]): Exercise[] =>
+  exercises.map((e) => ({ id: uid(), name: e.name, sets: e.sets, reps: e.reps, weightKg: e.weightKg, note: e.note, videoUrl: e.videoUrl, done: false }));
 
 // 7 días vacíos (lunes→domingo) para un plan de nutrición nuevo.
 const emptyNutritionDays = (): NutritionDay[] =>
@@ -246,6 +256,52 @@ export const useStore = create<State>()(
             })),
           },
         })),
+
+      saveRoutine: ({ name, exercises }) =>
+        set((s) => ({
+          db: {
+            ...s.db,
+            routines: [
+              ...(s.db.routines ?? []),
+              { id: uid(), trainerId: s.sessionUserId ?? 'trainer-kike', name: name.trim() || 'Rutina', exercises: cloneExercises(exercises) },
+            ],
+          },
+        })),
+
+      removeRoutine: (id) =>
+        set((s) => ({ db: { ...s.db, routines: (s.db.routines ?? []).filter((r) => r.id !== id) } })),
+
+      applyRoutine: (planId, dayId, routineId) =>
+        set((s) => {
+          const routine = (s.db.routines ?? []).find((r) => r.id === routineId);
+          if (!routine) return { db: s.db };
+          return {
+            db: {
+              ...s.db,
+              workoutPlans: set2(s.db.workoutPlans, (p) => p.id === planId, (p) => ({
+                ...p,
+                updatedAt: Date.now(),
+                days: set2(p.days, (d) => d.id === dayId, (d) => ({ ...d, exercises: cloneExercises(routine.exercises) })),
+              })),
+            },
+          };
+        }),
+
+      addRoutineAsDay: (planId, weekday, routineId) =>
+        set((s) => {
+          const routine = (s.db.routines ?? []).find((r) => r.id === routineId);
+          if (!routine) return { db: s.db };
+          return {
+            db: {
+              ...s.db,
+              workoutPlans: set2(s.db.workoutPlans, (p) => p.id === planId, (p) => ({
+                ...p,
+                updatedAt: Date.now(),
+                days: [...p.days, { id: uid(), name: routine.name, weekday, exercises: cloneExercises(routine.exercises) }],
+              })),
+            },
+          };
+        }),
 
       updateNutrition: (planId, patch) =>
         set((s) => ({
@@ -567,7 +623,7 @@ export const useStore = create<State>()(
     {
       // Sube la versión cuando cambian los datos semilla (p. ej. vídeos) para que
       // los dispositivos refresquen la demo en vez de quedarse con datos viejos.
-      name: 'fitnessencial-db-v9',
+      name: 'fitnessencial-db-v10',
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (s) => ({ db: s.db, sessionUserId: s.sessionUserId }),
     }
@@ -618,6 +674,12 @@ export const useProgressOf = (clientId?: string) =>
     useShallow((s) =>
       s.db.progress.filter((p) => p.clientId === clientId).sort((a, b) => a.date - b.date)
     )
+  );
+
+// Rutinas guardadas por el entrenador (biblioteca reutilizable).
+export const useRoutines = (trainerId?: string): RoutineTemplate[] =>
+  useStore(
+    useShallow((s) => (s.db.routines ?? []).filter((r) => !trainerId || r.trainerId === trainerId))
   );
 
 // Tareas de la planificación (calendario) de un cliente, ordenadas por fecha.

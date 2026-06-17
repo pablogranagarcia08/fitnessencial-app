@@ -194,6 +194,33 @@ export function makeSeed(): DB {
       ...makePlanTasks('client-marta', [0, 1, 3, 5], ['Glúteos en Acción', 'Torso A · Brazos fuertes', 'Piernas completa + glúteo', 'Fuerza Superior y Full Body']),
       ...makePlanTasks('client-david', [0, 1, 2, 3, 4], ['Push · Pecho/Hombro', 'Pull · Espalda/Bíceps', 'Pierna completa', 'Torso fuerza', 'Full Body']),
     ],
+
+    // Biblioteca de rutinas reutilizables de Kike.
+    routines: [
+      {
+        id: 'rt-fullbody',
+        trainerId: 'trainer-kike',
+        name: 'Full Body Express',
+        exercises: [
+          { id: 'rtx1', name: 'Sentadilla', sets: 4, reps: '8-10', weightKg: 40, done: false },
+          { id: 'rtx2', name: 'Press banca', sets: 4, reps: '8-10', weightKg: 30, done: false },
+          { id: 'rtx3', name: 'Remo con barra', sets: 3, reps: '10-12', weightKg: 30, done: false },
+          { id: 'rtx4', name: 'Press militar', sets: 3, reps: '10-12', weightKg: 18, done: false },
+          { id: 'rtx5', name: 'Plancha', sets: 3, reps: '40s', done: false },
+        ],
+      },
+      {
+        id: 'rt-gluteos',
+        trainerId: 'trainer-kike',
+        name: 'Glúteo y pierna',
+        exercises: [
+          { id: 'rtx6', name: 'Hip thrust', sets: 4, reps: '10-12', weightKg: 50, done: false },
+          { id: 'rtx7', name: 'Peso muerto rumano', sets: 4, reps: '8-10', weightKg: 45, done: false },
+          { id: 'rtx8', name: 'Zancadas', sets: 3, reps: '12 / pierna', done: false },
+          { id: 'rtx9', name: 'Patada de glúteo en polea', sets: 3, reps: '15', done: false },
+        ],
+      },
+    ],
   };
 
   // Adjunta el vídeo de explicación a cada ejercicio que tenga uno disponible.
