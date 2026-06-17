@@ -104,6 +104,7 @@ export function makeSeed(): DB {
           {
             id: 'wd-m1',
             name: 'Día A · Tren inferior',
+            weekday: 'mon',
             exercises: [
               { id: 'e1', name: 'Sentadilla', sets: 4, reps: '6-8', weightKg: 50, done: false },
               { id: 'e2', name: 'Peso muerto rumano', sets: 3, reps: '8-10', weightKg: 40, done: false },
@@ -114,6 +115,7 @@ export function makeSeed(): DB {
           {
             id: 'wd-m2',
             name: 'Día B · Tren superior',
+            weekday: 'thu',
             exercises: [
               { id: 'e5', name: 'Press banca', sets: 4, reps: '6-8', weightKg: 30, done: false },
               { id: 'e6', name: 'Remo con barra', sets: 4, reps: '8-10', weightKg: 35, done: false },
@@ -132,6 +134,7 @@ export function makeSeed(): DB {
           {
             id: 'wd-d1',
             name: 'Push · Pecho/Hombro',
+            weekday: 'mon',
             exercises: [
               { id: 'e9', name: 'Press banca', sets: 4, reps: '8-10', weightKg: 70, done: false },
               { id: 'e10', name: 'Press inclinado mancuerna', sets: 3, reps: '10-12', weightKg: 28, done: false },

@@ -59,6 +59,7 @@ export interface Exercise {
 export interface WorkoutDay {
   id: string;
   name: string; // "Día A · Empuje"
+  weekday?: Weekday; // día de la semana al que se asigna la sesión
   exercises: Exercise[];
 }
 

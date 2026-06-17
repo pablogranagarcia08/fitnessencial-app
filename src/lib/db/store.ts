@@ -5,7 +5,7 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 import { useShallow } from 'zustand/react/shallow';
 import { planEngine, type PlanInput } from '../plan/engine';
 import { makeSeed } from './seed';
-import type { ClientProfile, ClientStatus, DB, Exercise, Meal, MealOption, NutritionDay, NutritionPlan, PlanTask, PlanTaskType, ProgressEntry, SetLog, User, WorkoutDay, WorkoutPlan } from './types';
+import type { ClientProfile, ClientStatus, DB, Exercise, Meal, MealOption, NutritionDay, NutritionPlan, PlanTask, PlanTaskType, ProgressEntry, SetLog, User, Weekday, WorkoutDay, WorkoutPlan } from './types';
 import { WEEKDAYS } from './types';
 
 // Adherencia: % de series marcadas como hechas sobre las prescritas en el plan.
@@ -44,7 +44,9 @@ interface State {
   updateExercise: (planId: string, dayId: string, exId: string, patch: Partial<Exercise>) => void;
   addExercise: (planId: string, dayId: string) => void;
   removeExercise: (planId: string, dayId: string, exId: string) => void;
-  addWorkoutDay: (planId: string) => void;
+  addWorkoutDayFor: (planId: string, weekday: Weekday) => void; // crea sesión en un día de la semana
+  updateWorkoutDay: (planId: string, dayId: string, patch: Partial<Pick<WorkoutDay, 'name'>>) => void;
+  removeWorkoutDay: (planId: string, dayId: string) => void;
   resetDayProgress: (planId: string, dayId: string) => void;
 
   // nutrición (dieta por día de la semana; cada comida tiene varias opciones)
@@ -190,14 +192,38 @@ export const useStore = create<State>()(
           },
         })),
 
-      addWorkoutDay: (planId) =>
+      addWorkoutDayFor: (planId, weekday) =>
         set((s) => ({
           db: {
             ...s.db,
             workoutPlans: set2(s.db.workoutPlans, (p) => p.id === planId, (p) => ({
               ...p,
               updatedAt: Date.now(),
-              days: [...p.days, { id: uid(), name: `Día ${p.days.length + 1}`, exercises: [] } as WorkoutDay],
+              days: [...p.days, { id: uid(), name: 'Sesión', weekday, exercises: [] } as WorkoutDay],
+            })),
+          },
+        })),
+
+      updateWorkoutDay: (planId, dayId, patch) =>
+        set((s) => ({
+          db: {
+            ...s.db,
+            workoutPlans: set2(s.db.workoutPlans, (p) => p.id === planId, (p) => ({
+              ...p,
+              updatedAt: Date.now(),
+              days: set2(p.days, (d) => d.id === dayId, (d) => ({ ...d, ...patch })),
+            })),
+          },
+        })),
+
+      removeWorkoutDay: (planId, dayId) =>
+        set((s) => ({
+          db: {
+            ...s.db,
+            workoutPlans: set2(s.db.workoutPlans, (p) => p.id === planId, (p) => ({
+              ...p,
+              updatedAt: Date.now(),
+              days: p.days.filter((d) => d.id !== dayId),
             })),
           },
         })),
@@ -482,7 +508,7 @@ export const useStore = create<State>()(
                 name: 'Plan personalizado',
                 status: 'draft',
                 updatedAt: Date.now(),
-                days: [{ id: uid(), name: 'Día 1', exercises: [] }],
+                days: [],
               },
             ],
           },
@@ -541,7 +567,7 @@ export const useStore = create<State>()(
     {
       // Sube la versión cuando cambian los datos semilla (p. ej. vídeos) para que
       // los dispositivos refresquen la demo en vez de quedarse con datos viejos.
-      name: 'fitnessencial-db-v8',
+      name: 'fitnessencial-db-v9',
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (s) => ({ db: s.db, sessionUserId: s.sessionUserId }),
     }

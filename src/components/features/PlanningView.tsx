@@ -119,12 +119,19 @@ export function PlanningView({ clientId, mode }: { clientId: string; mode: 'clie
         onClose={() => setModalDay(null)}
         onToggle={togglePlanTask}
         onRemove={removePlanTask}
-        onAdd={(data) => modalDay != null && addPlanTask({ clientId, date: modalDay, ...data })}
+        onAdd={(data) => {
+          if (modalDay == null) return;
+          const { repeat, ...rest } = data;
+          const weeks = repeat ? 8 : 1; // "repetir" = misma tarea cada semana
+          for (let k = 0; k < weeks; k++) addPlanTask({ clientId, date: modalDay + k * 7 * DAY, ...rest });
+        }}
         onUpdate={updatePlanTask}
       />
     </View>
   );
 }
+
+type TaskData = { type: PlanTaskType; title: string; time?: string; body?: string; repeat?: boolean };
 
 // ---------- Modal de día (al tocar una fecha) ----------
 function DayModal({ day, tasks, editable, onClose, onToggle, onRemove, onAdd, onUpdate }: {
@@ -134,144 +141,193 @@ function DayModal({ day, tasks, editable, onClose, onToggle, onRemove, onAdd, on
   onClose: () => void;
   onToggle: (id: string) => void;
   onRemove: (id: string) => void;
-  onAdd: (data: { type: PlanTaskType; title: string; time?: string; body?: string }) => void;
+  onAdd: (data: TaskData) => void;
   onUpdate: (id: string, patch: { type?: PlanTaskType; title?: string; time?: string; body?: string }) => void;
 }) {
-  // form === null: no hay formulario abierto. 'new' = alta. otro string = editando ese id.
-  const [form, setForm] = useState<null | 'new' | string>(null);
-  const [type, setType] = useState<PlanTaskType>('workout');
-  const [title, setTitle] = useState('');
-  const [time, setTime] = useState('');
-  const [body, setBody] = useState('');
+  const [screen, setScreen] = useState<{ kind: 'list' } | { kind: 'add' } | { kind: 'edit'; task: PlanTask }>({ kind: 'list' });
   if (day == null) return null;
-
-  const resetForm = () => { setForm(null); setTitle(''); setTime(''); setBody(''); setType('workout'); };
-  const openNew = () => { resetForm(); setForm('new'); };
-  const openEdit = (t: PlanTask) => {
-    setForm(t.id);
-    setType(t.type);
-    setTitle(t.title);
-    setTime(t.time ?? '');
-    setBody(t.body ?? '');
-  };
-
-  // Normaliza la entrada de hora a "HH:MM" según se escribe.
-  const onTime = (v: string) => {
-    const d = v.replace(/[^0-9]/g, '').slice(0, 4);
-    setTime(d.length <= 2 ? d : `${d.slice(0, 2)}:${d.slice(2)}`);
-  };
-
-  const isMsg = type === 'message';
-  const submit = () => {
-    const data = {
-      type,
-      title: isMsg ? (title.trim() || 'Mensaje programado') : (title.trim() || TASK_META[type].label),
-      time: time.trim() || undefined,
-      body: isMsg ? (body.trim() || undefined) : undefined,
-    };
-    if (form === 'new') onAdd(data);
-    else if (form) onUpdate(form, data);
-    resetForm();
-  };
-  const close = () => { resetForm(); onClose(); };
+  const close = () => { setScreen({ kind: 'list' }); onClose(); };
 
   return (
     <Modal visible transparent animationType="fade" onRequestClose={close}>
       <Pressable style={st.backdrop} onPress={close}>
         <Pressable style={st.modalCard} onPress={(e) => e.stopPropagation()}>
-          <Row style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <View style={{ flex: 1 }}>
-              <Txt variant="title" style={{ textTransform: 'capitalize', fontSize: 20 }}>{fullDateLabel(day)}</Txt>
-              <Txt variant="mute">Estas son las tareas del día</Txt>
-            </View>
-            <IconButton icon="close" color={colors.mute} onPress={close} />
-          </Row>
+          {screen.kind === 'list' ? (
+            <>
+              <Row style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <View style={{ flex: 1 }}>
+                  <Txt variant="title" style={{ textTransform: 'capitalize', fontSize: 20 }}>{fullDateLabel(day)}</Txt>
+                  <Txt variant="mute">Estas son las tareas del día</Txt>
+                </View>
+                <IconButton icon="close" color={colors.mute} onPress={close} />
+              </Row>
 
-          <ScrollView style={{ maxHeight: 380 }} contentContainerStyle={{ gap: space.sm, paddingVertical: space.sm }} showsVerticalScrollIndicator={false}>
-            {tasks.length === 0 && <Txt variant="mute" style={{ paddingVertical: space.md }}>No hay tareas programadas este día.</Txt>}
-            {tasks.map((t) => {
-              const meta = TASK_META[t.type];
-              return (
-                <Card key={t.id} soft style={{ gap: 8 }}>
-                  <Row style={{ justifyContent: 'space-between' }}>
-                    <Pressable onPress={() => onToggle(t.id)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
-                      <View style={[st.modalDot, { backgroundColor: meta.color, opacity: t.done ? 0.4 : 1 }]} />
-                      <Txt variant="subtitle" style={{ flex: 1, textDecorationLine: t.done ? 'line-through' : 'none', opacity: t.done ? 0.6 : 1 }} numberOfLines={2}>
-                        {t.title}
-                      </Txt>
-                    </Pressable>
-                    {t.done && <Ionicons name="checkmark-circle" size={20} color={colors.success} />}
-                    {editable && <IconButton icon="create-outline" color={colors.accent} size={18} onPress={() => openEdit(t)} />}
-                    {editable && <IconButton icon="trash-outline" color={colors.danger} size={18} onPress={() => onRemove(t.id)} />}
-                  </Row>
-                  {t.body ? <Txt variant="body" style={{ fontSize: 14 }}>{t.body}</Txt> : null}
-                  <Row style={{ gap: 6 }}>
-                    <Ionicons name="calendar-outline" size={14} color={colors.mute} />
-                    <Txt variant="mute" style={{ fontSize: 13 }}>{shortDateLabel(t.date)}</Txt>
-                    <Ionicons name="time-outline" size={14} color={colors.mute} style={{ marginLeft: 8 }} />
-                    <Txt variant="mute" style={{ fontSize: 13 }}>{t.time ? `Se envía a las ${t.time}` : 'Todo el día'}</Txt>
-                  </Row>
-                  <Row style={{ gap: 6 }}>
-                    <Ionicons name={meta.icon} size={14} color={meta.color} />
-                    <Txt style={{ fontSize: 13, color: colors.inkSoft }}>{meta.label}</Txt>
-                  </Row>
-                </Card>
-              );
-            })}
-          </ScrollView>
-
-          {editable && form && (
-            <View style={{ gap: space.sm }}>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
-                {ADD_TYPES.map((ty) => {
-                  const active = ty === type;
+              <ScrollView style={{ maxHeight: 360 }} contentContainerStyle={{ gap: space.sm, paddingVertical: space.sm }} showsVerticalScrollIndicator={false}>
+                {tasks.length === 0 && <Txt variant="mute" style={{ paddingVertical: space.md }}>No hay tareas programadas este día.</Txt>}
+                {tasks.map((t) => {
+                  const meta = TASK_META[t.type];
                   return (
-                    <Pressable key={ty} onPress={() => setType(ty)} style={[st.typePill, active && { backgroundColor: TASK_META[ty].color, borderColor: TASK_META[ty].color }]}>
-                      <Txt style={{ fontSize: 12, fontWeight: font.semibold, color: active ? colors.bg : colors.inkSoft }}>{TASK_META[ty].label}</Txt>
-                    </Pressable>
+                    <Card key={t.id} soft style={{ gap: 8 }}>
+                      <Row style={{ justifyContent: 'space-between' }}>
+                        <Pressable onPress={() => onToggle(t.id)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+                          <View style={[st.modalDot, { backgroundColor: meta.color, opacity: t.done ? 0.4 : 1 }]} />
+                          <Txt variant="subtitle" style={{ flex: 1, textDecorationLine: t.done ? 'line-through' : 'none', opacity: t.done ? 0.6 : 1 }} numberOfLines={2}>
+                            {t.title}
+                          </Txt>
+                        </Pressable>
+                        {t.done && <Ionicons name="checkmark-circle" size={20} color={colors.success} />}
+                        {editable && <IconButton icon="create-outline" color={colors.accent} size={18} onPress={() => setScreen({ kind: 'edit', task: t })} />}
+                        {editable && <IconButton icon="trash-outline" color={colors.danger} size={18} onPress={() => onRemove(t.id)} />}
+                      </Row>
+                      {t.body ? <Txt variant="body" style={{ fontSize: 14 }}>{t.body}</Txt> : null}
+                      <Row style={{ gap: 6 }}>
+                        <Ionicons name="calendar-outline" size={14} color={colors.mute} />
+                        <Txt variant="mute" style={{ fontSize: 13 }}>{shortDateLabel(t.date)}</Txt>
+                        <Ionicons name="time-outline" size={14} color={colors.mute} style={{ marginLeft: 8 }} />
+                        <Txt variant="mute" style={{ fontSize: 13 }}>{t.time ? `Se envía a las ${t.time}` : 'Todo el día'}</Txt>
+                      </Row>
+                      <Row style={{ gap: 6 }}>
+                        <Ionicons name={meta.icon} size={14} color={meta.color} />
+                        <Txt style={{ fontSize: 13, color: colors.inkSoft }}>{meta.label}</Txt>
+                      </Row>
+                    </Card>
                   );
                 })}
               </ScrollView>
 
-              {isMsg ? (
-                <>
-                  <TextInput
-                    value={body}
-                    onChangeText={setBody}
-                    placeholder="Escribe el mensaje que recibirá el cliente…"
-                    placeholderTextColor={colors.mute}
-                    multiline
-                    style={[st.addInput, { minHeight: 80, textAlignVertical: 'top' }]}
-                  />
-                  <Row style={{ gap: 8 }}>
-                    <Row style={[st.timeBox, { flex: 1 }]}>
-                      <Ionicons name="time-outline" size={16} color={colors.accent} />
-                      <Txt variant="mute" style={{ fontSize: 13 }}>Hora de envío</Txt>
-                      <TextInput value={time} onChangeText={onTime} placeholder="09:00" placeholderTextColor={colors.mute} keyboardType="numeric" maxLength={5} style={st.timeInput} />
-                    </Row>
-                    <Pressable onPress={submit} style={st.saveBtn}><Txt style={{ color: colors.bg, fontWeight: font.bold }}>OK</Txt></Pressable>
-                  </Row>
-                </>
-              ) : (
-                <Row>
-                  <TextInput value={title} onChangeText={setTitle} placeholder={TASK_META[type].label} placeholderTextColor={colors.mute} style={st.addInput} />
-                  <Pressable onPress={submit} style={st.saveBtn}><Txt style={{ color: colors.bg, fontWeight: font.bold }}>OK</Txt></Pressable>
-                </Row>
+              {editable && (
+                <Pressable onPress={() => setScreen({ kind: 'add' })} style={st.addNewBtn}>
+                  <Txt style={{ color: colors.bg, fontWeight: font.bold, fontSize: 15 }}>Añadir nuevo</Txt>
+                </Pressable>
               )}
-              <Pressable onPress={resetForm} style={{ alignSelf: 'center', paddingVertical: 4 }}>
-                <Txt variant="mute" style={{ fontSize: 13 }}>Cancelar</Txt>
-              </Pressable>
-            </View>
-          )}
-
-          {editable && !form && (
-            <Pressable onPress={openNew} style={st.addNewBtn}>
-              <Txt style={{ color: colors.bg, fontWeight: font.bold, fontSize: 15 }}>Añadir nuevo</Txt>
-            </Pressable>
+            </>
+          ) : (
+            <AddTaskScreen
+              day={day}
+              editing={screen.kind === 'edit' ? screen.task : undefined}
+              onBack={() => setScreen({ kind: 'list' })}
+              onSubmit={(data) => {
+                if (screen.kind === 'edit') onUpdate(screen.task.id, { type: data.type, title: data.title, time: data.time, body: data.body });
+                else onAdd(data);
+                setScreen({ kind: 'list' });
+              }}
+            />
           )}
         </Pressable>
       </Pressable>
     </Modal>
+  );
+}
+
+// Pantalla "Añadir nueva tarea" (estilo Harbiz): fecha, repetir Sí/No y categorías
+// desplegables. Sirve también para editar una tarea existente.
+function AddTaskScreen({ day, editing, onBack, onSubmit }: {
+  day: number;
+  editing?: PlanTask;
+  onBack: () => void;
+  onSubmit: (data: TaskData) => void;
+}) {
+  const [open, setOpen] = useState<PlanTaskType | null>(editing?.type ?? null);
+  const [repeat, setRepeat] = useState(false);
+  const [title, setTitle] = useState(editing?.title ?? '');
+  const [time, setTime] = useState(editing?.time ?? '');
+  const [body, setBody] = useState(editing?.body ?? '');
+
+  const d = new Date(day);
+  const fecha = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+
+  const onTime = (v: string) => {
+    const x = v.replace(/[^0-9]/g, '').slice(0, 4);
+    setTime(x.length <= 2 ? x : `${x.slice(0, 2)}:${x.slice(2)}`);
+  };
+
+  const submit = (ty: PlanTaskType) => {
+    const isMsg = ty === 'message';
+    onSubmit({
+      type: ty,
+      title: title.trim() || TASK_META[ty].label,
+      time: time.trim() || undefined,
+      body: isMsg ? (body.trim() || undefined) : undefined,
+      repeat: !editing && repeat,
+    });
+  };
+
+  return (
+    <>
+      <Row style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <Txt variant="title" style={{ fontSize: 19, flex: 1 }}>{editing ? 'Editar tarea' : `Añadir nueva tarea`}</Txt>
+        <IconButton icon="close" color={colors.mute} onPress={onBack} />
+      </Row>
+
+      <View style={{ gap: 6 }}>
+        <Txt variant="label">FECHA</Txt>
+        <View style={st.dateField}>
+          <Ionicons name="calendar-outline" size={16} color={colors.mute} />
+          <Txt style={{ color: colors.ink, fontSize: 15 }}>{fecha}</Txt>
+        </View>
+      </View>
+
+      {!editing && (
+        <Row style={{ justifyContent: 'space-between', marginTop: 4 }}>
+          <Txt style={{ color: colors.ink, fontSize: 15 }}>¿Quieres repetir esta tarea?</Txt>
+          <Row style={{ gap: space.md }}>
+            <Radio label="Sí" on={repeat} onPress={() => setRepeat(true)} />
+            <Radio label="No" on={!repeat} onPress={() => setRepeat(false)} />
+          </Row>
+        </Row>
+      )}
+      {!editing && repeat && <Txt variant="mute" style={{ fontSize: 12 }}>Se programará cada semana (8 semanas).</Txt>}
+
+      <ScrollView style={{ maxHeight: 340 }} contentContainerStyle={{ gap: 8, paddingVertical: space.sm }} showsVerticalScrollIndicator={false}>
+        {ADD_TYPES.map((ty) => {
+          const meta = TASK_META[ty];
+          const isOpen = open === ty;
+          const isMsg = ty === 'message';
+          return (
+            <View key={ty} style={[st.catRow, isOpen && { borderColor: meta.color }]}>
+              <Pressable onPress={() => setOpen(isOpen ? null : ty)} style={st.catHead}>
+                <Row style={{ gap: 10, flex: 1 }}>
+                  <View style={[st.modalDot, { backgroundColor: meta.color }]} />
+                  <Txt variant="subtitle" style={{ fontSize: 15 }}>{meta.label}</Txt>
+                </Row>
+                <Ionicons name={isOpen ? 'chevron-up' : 'chevron-down'} size={18} color={colors.mute} />
+              </Pressable>
+
+              {isOpen && (
+                <View style={{ gap: space.sm, paddingTop: 4 }}>
+                  {isMsg ? (
+                    <>
+                      <TextInput value={body} onChangeText={setBody} placeholder="Escribe el mensaje que recibirá el cliente…" placeholderTextColor={colors.mute} multiline style={[st.addInput, { minHeight: 70, textAlignVertical: 'top' }]} />
+                      <Row style={[st.timeBox]}>
+                        <Ionicons name="time-outline" size={16} color={colors.accent} />
+                        <Txt variant="mute" style={{ fontSize: 13 }}>Hora de envío</Txt>
+                        <TextInput value={time} onChangeText={onTime} placeholder="09:00" placeholderTextColor={colors.mute} keyboardType="numeric" maxLength={5} style={st.timeInput} />
+                      </Row>
+                    </>
+                  ) : (
+                    <TextInput value={title} onChangeText={setTitle} placeholder={`Nombre · ${meta.label}`} placeholderTextColor={colors.mute} style={st.addInput} />
+                  )}
+                  <Pressable onPress={() => submit(ty)} style={[st.addNewBtn, { marginTop: 0 }]}>
+                    <Txt style={{ color: colors.bg, fontWeight: font.bold, fontSize: 15 }}>{editing ? 'Guardar' : 'Añadir'}</Txt>
+                  </Pressable>
+                </View>
+              )}
+            </View>
+          );
+        })}
+      </ScrollView>
+    </>
+  );
+}
+
+function Radio({ label, on, onPress }: { label: string; on: boolean; onPress: () => void }) {
+  return (
+    <Pressable onPress={onPress} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+      <View style={[st.radioOuter, on && { borderColor: colors.accent }]}>
+        {on && <View style={st.radioInner} />}
+      </View>
+      <Txt style={{ color: colors.ink, fontSize: 15 }}>{label}</Txt>
+    </Pressable>
   );
 }
 
@@ -464,6 +520,11 @@ const st = StyleSheet.create({
   modalCard: { width: '100%', maxWidth: 460, backgroundColor: colors.card, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.line, padding: space.lg, gap: space.sm },
   modalDot: { width: 12, height: 12, borderRadius: 6 },
   addNewBtn: { backgroundColor: colors.accent, borderRadius: radius.pill, paddingVertical: 14, alignItems: 'center', marginTop: space.xs },
+  dateField: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.bg2, borderRadius: radius.sm, borderWidth: 1, borderColor: colors.line, paddingHorizontal: 12, paddingVertical: 11 },
+  catRow: { backgroundColor: colors.bg2, borderRadius: radius.md, borderWidth: 1, borderColor: colors.line, paddingHorizontal: space.md, paddingVertical: 12, gap: 4 },
+  catHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  radioOuter: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: colors.mute, alignItems: 'center', justifyContent: 'center' },
+  radioInner: { width: 11, height: 11, borderRadius: 6, backgroundColor: colors.accent },
   timeBox: { backgroundColor: colors.bg2, borderRadius: radius.sm, borderWidth: 1, borderColor: colors.line, paddingHorizontal: 12, paddingVertical: 8, gap: 8 },
   timeInput: { flex: 1, color: colors.ink, fontSize: 15, fontWeight: font.bold, textAlign: 'right', paddingVertical: 2 },
   typePill: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.bg2 },

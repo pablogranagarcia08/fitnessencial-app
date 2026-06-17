@@ -13,7 +13,8 @@ export default function Hoy() {
   const progress = useProgressOf(me?.id);
   if (!me) return null;
 
-  const today = plan?.days[0];
+  const weekdayKey = (['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const)[new Date().getDay()];
+  const today = plan?.days.find((d) => d.weekday === weekdayKey);
   const exDone = (e: { sets: number; logs?: { done: boolean }[] }) =>
     e.sets > 0 && Array.from({ length: e.sets }).every((_, i) => e.logs?.[i]?.done);
   const doneCount = today?.exercises.filter(exDone).length ?? 0;
@@ -75,7 +76,7 @@ export default function Hoy() {
       <Tile
         icon="barbell"
         title="Entreno de hoy"
-        sub={plan?.status === 'draft' ? 'Kike lo está preparando…' : today ? `${today.name} · ${doneCount}/${total} completado` : 'Sin rutina'}
+        sub={plan?.status === 'draft' ? 'Kike lo está preparando…' : today ? `${today.name} · ${doneCount}/${total} completado` : plan ? 'Descanso hoy 💤' : 'Sin rutina'}
         onPress={() => router.push('/(client)/entreno')}
       />
       <Tile

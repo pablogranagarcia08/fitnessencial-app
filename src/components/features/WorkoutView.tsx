@@ -4,16 +4,20 @@ import { Platform, Pressable, StyleSheet, TextInput, useWindowDimensions, View }
 import { Button, Card, EmptyState, IconButton, Row, SectionTitle, Txt } from '@/components/ui';
 import { hasVideo, openVideoNative, VideoModal, VideoThumb } from '@/components/VideoPlayer';
 import { useStore, useWorkoutPlan } from '@/lib/db/store';
-import type { Exercise } from '@/lib/db/types';
+import { WEEKDAYS, type Exercise, type Weekday } from '@/lib/db/types';
 import { colors, font, radius, space } from '@/lib/theme';
 
 // Un ejercicio está hecho cuando todas sus series están marcadas.
 const exDone = (e: Exercise) => e.sets > 0 && Array.from({ length: e.sets }).every((_, i) => e.logs?.[i]?.done);
 
+// Día de la semana de hoy (getDay: 0=domingo) en nuestras claves.
+const todayWeekday = (): Weekday => (['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as Weekday[])[new Date().getDay()];
+
 export function WorkoutView({ clientId, mode }: { clientId: string; mode: 'client' | 'trainer' }) {
   const plan = useWorkoutPlan(clientId);
-  const { logSet, updateExercise, addExercise, removeExercise, addWorkoutDay, resetDayProgress, createWorkoutPlan } = useStore();
+  const { logSet, updateExercise, addExercise, removeExercise, addWorkoutDayFor, updateWorkoutDay, removeWorkoutDay, resetDayProgress, createWorkoutPlan } = useStore();
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Weekday>(todayWeekday());
 
   // En web reproduce en un modal; en móvil abre YouTube/navegador.
   const playVideo = (url: string) => {
@@ -32,93 +36,126 @@ export function WorkoutView({ clientId, mode }: { clientId: string; mode: 'clien
     );
   }
 
+  const day = plan.days.find((d) => d.weekday === selected);
+  const dayLabel = WEEKDAYS.find((w) => w.key === selected)?.label ?? '';
+  const total = day?.exercises.length ?? 0;
+  const done = day?.exercises.filter(exDone).length ?? 0;
+  const pct = total ? Math.round((done / total) * 100) : 0;
+
   return (
     <View style={{ gap: space.md }}>
       <VideoModal url={videoUrl} onClose={() => setVideoUrl(null)} />
       <SectionTitle>{plan.name}</SectionTitle>
 
-      {plan.days.map((day) => {
-        const total = day.exercises.length;
-        const done = day.exercises.filter(exDone).length;
-        const pct = total ? Math.round((done / total) * 100) : 0;
+      {/* Selector de día de la semana */}
+      <View style={{ flexDirection: 'row', gap: 8 }}>
+        {WEEKDAYS.map((w) => {
+          const active = w.key === selected;
+          const hasSession = plan.days.some((d) => d.weekday === w.key);
+          return (
+            <Pressable key={w.key} onPress={() => setSelected(w.key)} style={[st.dayTab, active && st.dayTabActive]}>
+              <Txt style={{ color: active ? colors.bg : colors.ink, fontWeight: font.bold, fontSize: 13 }}>{w.short}</Txt>
+              <View style={[st.dayDot, { backgroundColor: hasSession ? (active ? colors.bg : colors.accent) : 'transparent' }]} />
+            </Pressable>
+          );
+        })}
+      </View>
 
-        return (
-          <Card key={day.id}>
+      {!day ? (
+        // Día de descanso (sin sesión asignada).
+        <Card style={{ alignItems: 'center', gap: space.sm, paddingVertical: space.lg }}>
+          <Ionicons name="bed-outline" size={30} color={colors.mute} />
+          <Txt variant="subtitle">{dayLabel} · Descanso</Txt>
+          <Txt variant="mute" style={{ textAlign: 'center' }}>No hay entreno programado este día.</Txt>
+          {mode === 'trainer' && (
+            <Button title="Añadir sesión" icon="add" small onPress={() => addWorkoutDayFor(plan.id, selected)} />
+          )}
+        </Card>
+      ) : (
+        <Card>
+          {mode === 'client' ? (
             <Row style={{ justifyContent: 'space-between' }}>
               <Txt variant="subtitle">{day.name}</Txt>
-              {mode === 'client' && total > 0 && <Txt variant="label">{done}/{total}</Txt>}
+              {total > 0 && <Txt variant="label">{done}/{total}</Txt>}
             </Row>
+          ) : (
+            <Row style={{ gap: 8 }}>
+              <TextInput
+                value={day.name}
+                onChangeText={(t) => updateWorkoutDay(plan.id, day.id, { name: t })}
+                style={[st.editInput, { flex: 1, fontWeight: font.bold, fontSize: 15 }]}
+                placeholder="Nombre de la sesión"
+                placeholderTextColor={colors.mute}
+              />
+              <IconButton icon="trash-outline" color={colors.danger} size={20} onPress={() => removeWorkoutDay(plan.id, day.id)} />
+            </Row>
+          )}
 
-            {mode === 'client' && total > 0 && (
-              <View style={st.bar}>
-                <View style={[st.barFill, { width: `${pct}%` }]} />
-              </View>
-            )}
+          {mode === 'client' && total > 0 && (
+            <View style={st.bar}>
+              <View style={[st.barFill, { width: `${pct}%` }]} />
+            </View>
+          )}
 
-            {day.exercises.map((ex) =>
-              mode === 'client' ? (
-                <ClientExercise
-                  key={ex.id}
-                  ex={ex}
-                  onLog={(index, patch) => logSet(plan.id, day.id, ex.id, index, patch)}
-                  onPlay={playVideo}
+          {day.exercises.map((ex) =>
+            mode === 'client' ? (
+              <ClientExercise
+                key={ex.id}
+                ex={ex}
+                onLog={(index, patch) => logSet(plan.id, day.id, ex.id, index, patch)}
+                onPlay={playVideo}
+              />
+            ) : (
+              <View key={ex.id} style={st.editCard}>
+                <TextInput
+                  value={ex.name}
+                  onChangeText={(t) => updateExercise(plan.id, day.id, ex.id, { name: t })}
+                  style={st.editInput}
+                  placeholder="Ejercicio"
+                  placeholderTextColor={colors.mute}
                 />
-              ) : (
-                <View key={ex.id} style={st.editCard}>
-                  <TextInput
-                    value={ex.name}
-                    onChangeText={(t) => updateExercise(plan.id, day.id, ex.id, { name: t })}
-                    style={st.editInput}
-                    placeholder="Ejercicio"
-                    placeholderTextColor={colors.mute}
-                  />
-                  <View style={st.editFields}>
-                    <NumField label="Series" value={ex.sets} onChange={(n) => updateExercise(plan.id, day.id, ex.id, { sets: n })} />
-                    <View style={{ flex: 1, gap: 3 }}>
-                      <Txt variant="mute" style={{ fontSize: 10 }}>Reps</Txt>
-                      <TextInput
-                        value={ex.reps}
-                        onChangeText={(t) => updateExercise(plan.id, day.id, ex.id, { reps: t })}
-                        style={[st.editInput, { textAlign: 'center' }]}
-                        placeholder="reps"
-                        placeholderTextColor={colors.mute}
-                      />
-                    </View>
-                    <NumField label="Kg" value={ex.weightKg ?? 0} onChange={(n) => updateExercise(plan.id, day.id, ex.id, { weightKg: n })} />
-                    <IconButton icon="trash-outline" color={colors.danger} size={20} onPress={() => removeExercise(plan.id, day.id, ex.id)} style={{ paddingBottom: 8 }} />
-                  </View>
-                  <Row style={{ gap: 8 }}>
-                    <Ionicons name="videocam" size={18} color={hasVideo(ex.videoUrl) ? colors.accent : colors.mute} />
+                <View style={st.editFields}>
+                  <NumField label="Series" value={ex.sets} onChange={(n) => updateExercise(plan.id, day.id, ex.id, { sets: n })} />
+                  <View style={{ flex: 1, gap: 3 }}>
+                    <Txt variant="mute" style={{ fontSize: 10 }}>Reps</Txt>
                     <TextInput
-                      value={ex.videoUrl ?? ''}
-                      onChangeText={(t) => updateExercise(plan.id, day.id, ex.id, { videoUrl: t })}
-                      style={[st.editInput, { flex: 1 }]}
-                      placeholder="Enlace del vídeo (YouTube o Drive)"
+                      value={ex.reps}
+                      onChangeText={(t) => updateExercise(plan.id, day.id, ex.id, { reps: t })}
+                      style={[st.editInput, { textAlign: 'center' }]}
+                      placeholder="reps"
                       placeholderTextColor={colors.mute}
-                      autoCapitalize="none"
                     />
-                    {hasVideo(ex.videoUrl) && (
-                      <VideoThumb url={ex.videoUrl} onPress={() => playVideo(ex.videoUrl!)} width={58} height={38} />
-                    )}
-                  </Row>
-                  <LoggedSummary ex={ex} />
+                  </View>
+                  <NumField label="Kg" value={ex.weightKg ?? 0} onChange={(n) => updateExercise(plan.id, day.id, ex.id, { weightKg: n })} />
+                  <IconButton icon="trash-outline" color={colors.danger} size={20} onPress={() => removeExercise(plan.id, day.id, ex.id)} style={{ paddingBottom: 8 }} />
                 </View>
-              )
-            )}
+                <Row style={{ gap: 8 }}>
+                  <Ionicons name="videocam" size={18} color={hasVideo(ex.videoUrl) ? colors.accent : colors.mute} />
+                  <TextInput
+                    value={ex.videoUrl ?? ''}
+                    onChangeText={(t) => updateExercise(plan.id, day.id, ex.id, { videoUrl: t })}
+                    style={[st.editInput, { flex: 1 }]}
+                    placeholder="Enlace del vídeo (YouTube o Drive)"
+                    placeholderTextColor={colors.mute}
+                    autoCapitalize="none"
+                  />
+                  {hasVideo(ex.videoUrl) && (
+                    <VideoThumb url={ex.videoUrl} onPress={() => playVideo(ex.videoUrl!)} width={58} height={38} />
+                  )}
+                </Row>
+                <LoggedSummary ex={ex} />
+              </View>
+            )
+          )}
 
-            {day.exercises.length === 0 && <Txt variant="mute">Sin ejercicios todavía.</Txt>}
+          {day.exercises.length === 0 && <Txt variant="mute">Sin ejercicios todavía.</Txt>}
 
-            {mode === 'trainer' ? (
-              <Button title="Añadir ejercicio" variant="ghost" icon="add" small onPress={() => addExercise(plan.id, day.id)} />
-            ) : done > 0 ? (
-              <Button title="Reiniciar día" variant="ghost" icon="refresh" small onPress={() => resetDayProgress(plan.id, day.id)} />
-            ) : null}
-          </Card>
-        );
-      })}
-
-      {mode === 'trainer' && (
-        <Button title="Añadir día de entreno" variant="ghost" icon="calendar" onPress={() => addWorkoutDay(plan.id)} />
+          {mode === 'trainer' ? (
+            <Button title="Añadir ejercicio" variant="ghost" icon="add" small onPress={() => addExercise(plan.id, day.id)} />
+          ) : done > 0 ? (
+            <Button title="Reiniciar día" variant="ghost" icon="refresh" small onPress={() => resetDayProgress(plan.id, day.id)} />
+          ) : null}
+        </Card>
       )}
     </View>
   );
@@ -272,6 +309,9 @@ function NumField({ value, onChange, label }: { value: number; onChange: (n: num
 }
 
 const st = StyleSheet.create({
+  dayTab: { flex: 1, paddingVertical: 9, borderRadius: radius.sm, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.bg2, alignItems: 'center', gap: 4 },
+  dayTabActive: { backgroundColor: colors.accent, borderColor: colors.accent },
+  dayDot: { width: 5, height: 5, borderRadius: 3 },
   bar: { height: 6, borderRadius: 3, backgroundColor: colors.bg2, overflow: 'hidden' },
   barFill: { height: '100%', backgroundColor: colors.accent, borderRadius: 3 },
   exRow: { flexDirection: 'row', alignItems: 'center', gap: space.sm, paddingVertical: 6 },

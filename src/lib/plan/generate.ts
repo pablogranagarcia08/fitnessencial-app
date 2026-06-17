@@ -1,4 +1,4 @@
-import type { Activity, Experience, GoalType, MealOption, NutritionDay, NutritionPlan, Sex, WorkoutDay, WorkoutPlan } from '../db/types';
+import type { Activity, Experience, GoalType, MealOption, NutritionDay, NutritionPlan, Sex, Weekday, WorkoutDay, WorkoutPlan } from '../db/types';
 import { WEEKDAYS } from '../db/types';
 import { videoFor } from '../exerciseVideos';
 import { foodPhoto } from '../foodPhotos';
@@ -147,6 +147,15 @@ function setsFor(exp: Experience): number {
   return exp === 'adv' ? 4 : 3;
 }
 
+// Días de la semana en los que se reparten las sesiones según cuántas haya.
+const TRAINING_WEEKDAYS: Record<number, Weekday[]> = {
+  2: ['mon', 'thu'],
+  3: ['mon', 'wed', 'fri'],
+  4: ['mon', 'tue', 'thu', 'fri'],
+  5: ['mon', 'tue', 'wed', 'thu', 'fri'],
+  6: ['mon', 'tue', 'wed', 'thu', 'fri', 'sat'],
+};
+
 function buildWorkout(input: PlanInput): WorkoutPlan {
   const days = Math.min(6, Math.max(2, input.daysPerWeek || 3));
   const split = SPLITS[days] ?? SPLITS[3];
@@ -154,10 +163,12 @@ function buildWorkout(input: PlanInput): WorkoutPlan {
   const reps = GOAL_REPS[input.goalType];
   // Principiante: menos volumen (4 ejercicios); intermedio/avanzado: más.
   const maxEx = input.experience === 'beg' ? 4 : input.experience === 'int' ? 5 : 6;
+  const weekdays = TRAINING_WEEKDAYS[days] ?? TRAINING_WEEKDAYS[3];
 
-  const workoutDays: WorkoutDay[] = split.map((d) => ({
+  const workoutDays: WorkoutDay[] = split.map((d, i) => ({
     id: uid(),
     name: `${d.label}`,
+    weekday: weekdays[i],
     exercises: POOL[d.key].slice(0, maxEx).map((name) => ({
       id: uid(),
       name,
