@@ -20,6 +20,7 @@ export default function ClientLayout() {
       }}
     >
       <Tabs.Screen name="hoy" options={{ title: 'Hoy', tabBarIcon: ({ color, size }) => <Ionicons name="today" size={size} color={color} /> }} />
+      <Tabs.Screen name="plan" options={{ title: 'Plan', tabBarIcon: ({ color, size }) => <Ionicons name="calendar" size={size} color={color} /> }} />
       <Tabs.Screen name="entreno" options={{ title: 'Entreno', tabBarIcon: ({ color, size }) => <Ionicons name="barbell" size={size} color={color} /> }} />
       <Tabs.Screen name="nutricion" options={{ title: 'Nutrición', tabBarIcon: ({ color, size }) => <Ionicons name="nutrition" size={size} color={color} /> }} />
       <Tabs.Screen name="progreso" options={{ title: 'Progreso', tabBarIcon: ({ color, size }) => <Ionicons name="trending-up" size={size} color={color} /> }} />

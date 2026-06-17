@@ -98,7 +98,8 @@ export function makeSeed(): DB {
       {
         id: 'wp-marta',
         clientId: 'client-marta',
-        name: 'Full Body · Fuerza',
+        name: 'Full Body · Fuerza · 12 semanas',
+        weeks: 12,
         updatedAt: now,
         days: [
           {
@@ -128,7 +129,8 @@ export function makeSeed(): DB {
       {
         id: 'wp-david',
         clientId: 'client-david',
-        name: 'Push Pull Legs',
+        name: 'Push Pull Legs · 12 semanas',
+        weeks: 12,
         updatedAt: now,
         days: [
           {
@@ -153,6 +155,7 @@ export function makeSeed(): DB {
         protein: 140,
         carbs: 160,
         fat: 55,
+        weeks: 12,
         updatedAt: now,
         days: buildNutritionDays(66),
       },
@@ -163,6 +166,7 @@ export function makeSeed(): DB {
         protein: 200,
         carbs: 330,
         fat: 80,
+        weeks: 12,
         updatedAt: now,
         days: buildNutritionDays(79),
       },

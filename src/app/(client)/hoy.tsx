@@ -86,6 +86,12 @@ export default function Hoy() {
         onPress={() => router.push('/(client)/nutricion')}
       />
       <Tile
+        icon="calendar"
+        title="Mi planificación"
+        sub="Tu calendario de 12 semanas"
+        onPress={() => router.push('/(client)/plan' as Href)}
+      />
+      <Tile
         icon="trending-up"
         title="Progreso"
         sub={lastWeight ? `Último peso · ${lastWeight} kg` : 'Registra tu primer dato'}
